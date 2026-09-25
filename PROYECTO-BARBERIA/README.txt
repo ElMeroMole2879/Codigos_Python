@@ -1,10 +1,4 @@
-acceso_bd = {
-    "host": "localhost",
-    "user": "admin_barberia",
-    "password": "Barberia2026*",
-    "database": "barberia_bd",
-    "port": 3306
-}
+
 
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP ON `barberia_bd%`.* TO 'admin_barberia'@'localhost';
 
