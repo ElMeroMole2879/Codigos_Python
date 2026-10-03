@@ -43,7 +43,7 @@ class Venta:
                 id_venta = cursor.lastrowid
                 # lastrowid nos da el último ID insertado en la tabla Ventas, que es el ticket que acabamos de crear.
                 
-                # PASO 2: Registrar los servicios realizados (para las comisiones)
+                # Registrar los servicios realizados (para las comisiones)
                 if lista_servicios:
                     sql_detalle_serv = """INSERT INTO Detalle_Venta_Servicios 
                                           (id_venta, id_servicio, id_empleado, precio_cobrado) 
@@ -93,7 +93,7 @@ class Venta:
             try:
                 cursor = conexion.cursor(dictionary=True)
                 
-                # 1. Datos generales de la venta
+                # Datos generales de la venta
                 cursor.execute("""
                     SELECT v.id_venta, v.fecha_hora, v.total, v.metodo_pago, 
                            c.nombres AS cliente_nombres, c.primer_apellido AS cliente_apellido
@@ -106,7 +106,7 @@ class Venta:
                 if not venta:
                     return None
 
-                # 2. Servicios cobrados en este ticket
+                # Servicios cobrados en este ticket
                 cursor.execute("""
                     SELECT s.nombre_servicio, ds.precio_cobrado, e.nombres AS barbero
                     FROM Detalle_Venta_Servicios ds
@@ -116,7 +116,7 @@ class Venta:
                 """, (id_venta,))
                 servicios = cursor.fetchall()
 
-                # 3. Productos vendidos en este ticket
+                # Productos vendidos en este ticket
                 cursor.execute("""
                     SELECT p.nombre_producto, dp.cantidad, dp.precio_cobrado
                     FROM Detalle_Venta_Productos dp

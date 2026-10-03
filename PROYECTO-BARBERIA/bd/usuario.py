@@ -8,7 +8,6 @@ class Usuario:
         # Conexión a la base de datos
         db = ConexionDB()
         conexion = db.conectar()
-        # ... (todo el resto de tu código se queda exactamente igual)
 
         # Si la conexión falla, retornamos None
         if conexion is None:

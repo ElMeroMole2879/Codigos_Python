@@ -39,7 +39,7 @@ class Cliente:
         if conexion:
             try:
                 cursor = conexion.cursor(dictionary=True) 
-                # CAMBIO APLICADO: Solo trae a los clientes con activo = True
+                # Solo trae a los clientes con activo = True
                 cursor.execute("SELECT * FROM CLIENTES WHERE activo = True ORDER BY nombres ASC")
                 return cursor.fetchall()
             except Exception as e:
