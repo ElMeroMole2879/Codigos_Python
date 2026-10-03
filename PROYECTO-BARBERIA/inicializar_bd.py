@@ -24,7 +24,7 @@ class InicializadorBD:
                 cursor.execute(f"CREATE DATABASE {nombre_bd} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
                 cursor.execute(f"USE {nombre_bd};")
 
-                # TABLA 1: Usuarios (Login y Seguridad)
+                # TABLA 1: Usuarios
                 cursor.execute("""
                 CREATE TABLE Usuarios (
                     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,7 +39,7 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 2: Empleados (Con sistema de nómina y comisiones)
+                # TABLA 2: Empleados
                 cursor.execute("""
                 CREATE TABLE Empleados (
                     id_empleado INT AUTO_INCREMENT PRIMARY KEY,
@@ -61,7 +61,7 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 3: Clientes (Con preferencias de corte)
+                # TABLA 3: Clientes 
                 cursor.execute("""
                 CREATE TABLE Clientes (
                     id_cliente INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,7 +69,8 @@ class InicializadorBD:
                     primer_apellido VARCHAR(50) NOT NULL,
                     segundo_apellido VARCHAR(50),
                     telefono VARCHAR(15) UNIQUE NOT NULL,
-                    corte_preferido VARCHAR(100)
+                    corte_preferido VARCHAR(100),
+                    activo BOOLEAN DEFAULT TRUE
                 );
                 """)
 

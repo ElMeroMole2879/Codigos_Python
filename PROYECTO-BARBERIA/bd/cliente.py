@@ -32,14 +32,15 @@ class Cliente:
 
     @staticmethod
     def obtener_todos_los_clientes():
-        #Trae la lista completa de clientes ordenados por nombre.
+        #Trae la lista de clientes activos ordenados por nombre.
         db = ConexionDB()
         conexion = db.conectar()
         
         if conexion:
             try:
                 cursor = conexion.cursor(dictionary=True) 
-                cursor.execute("SELECT * FROM CLIENTES ORDER BY nombres ASC")
+                # CAMBIO APLICADO: Solo trae a los clientes con activo = True
+                cursor.execute("SELECT * FROM CLIENTES WHERE activo = True ORDER BY nombres ASC")
                 return cursor.fetchall()
             except Exception as e:
                 print(f"Error al obtener clientes: {e}")
@@ -48,3 +49,53 @@ class Cliente:
                 cursor.close()
                 db.desconectar()
         return []
+
+    @staticmethod
+    def dar_de_baja(id_cliente):
+        #Realiza una baja lógica del cliente (activo = False) en lugar de borrarlo.
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor()
+                sql = "UPDATE CLIENTES SET activo = False WHERE id_cliente = %s"
+                cursor.execute(sql, (id_cliente,))
+                conexion.commit()
+                
+                print(f"Éxito: Cliente {id_cliente} dado de baja (oculto) del sistema.")
+                return True
+                
+            except Exception as e:
+                print(f"Error al dar de baja al cliente: {e}")
+                conexion.rollback()
+                return False
+            finally:
+                cursor.close()
+                db.desconectar()
+        return False
+
+    @staticmethod
+    def reactivar_cliente(id_cliente):
+        #Vuelve a activar a un cliente que había sido dado de baja.
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor()
+                sql = "UPDATE CLIENTES SET activo = True WHERE id_cliente = %s"
+                cursor.execute(sql, (id_cliente,))
+                conexion.commit()
+                
+                print(f"Éxito: Cliente {id_cliente} reactivado en el sistema.")
+                return True
+                
+            except Exception as e:
+                print(f"Error al reactivar al cliente: {e}")
+                conexion.rollback()
+                return False
+            finally:
+                cursor.close()
+                db.desconectar()
+        return False

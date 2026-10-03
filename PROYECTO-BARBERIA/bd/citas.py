@@ -58,6 +58,7 @@ class Cita:
                 INNER JOIN Clientes cl ON c.id_cliente = cl.id_cliente
                 INNER JOIN Empleados e ON c.id_empleado = e.id_empleado
                 INNER JOIN Servicios s ON c.id_servicio = s.id_servicio
+                WHERE cl.activo = True AND e.activo = True
                 ORDER BY c.fecha_cita ASC, c.hora_cita ASC
                 """
                 # Glosario

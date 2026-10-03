@@ -1,6 +1,7 @@
 from bd.usuario import Usuario
 from bd.cliente import Cliente
 from bd.citas import Cita
+from bd.finanzas import Finanzas
 
 def simular_frontend():
     print("=========================================")
@@ -36,5 +37,14 @@ def simular_frontend():
     else:
         print("BACKEND RESPONDE: Error al agendar cita. (Aviso: La BD protegió la integridad referencial).")
 
+    print("\n--- PASO 3: MÓDULO DE FINANZAS (DESGLOSADO) ---")
+    
+    # Probamos el reporte detallado del día
+    finanzas_dia = Finanzas.obtener_ingresos_detallados('dia')
+    print("-> El frontend consulta el corte de caja de HOY:")
+    print(f"   - Total General en Caja: ${finanzas_dia['total_general']:.2f}")
+    print(f"   - Ingresos por Servicios (Cortes): ${finanzas_dia['total_servicios']:.2f}")
+    print(f"   - Ingresos por Productos (Mostrador): ${finanzas_dia['total_productos']:.2f}")
+    
 if __name__ == "__main__":
     simular_frontend()
