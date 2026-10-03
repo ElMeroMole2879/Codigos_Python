@@ -1,0 +1,6 @@
+# Archivos de configuración y credenciales secretas
+config.py
+
+# Archivos de caché compilados de Python
+__pycache__/
+*.pyc

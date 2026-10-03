@@ -6,7 +6,7 @@ import datetime
 # CONEXION A BASE DE DATOS
 acceso_bd = {"host" : "localhost",
              "user" : "root",
-             "password" : "ElMeroMole2879_",
+             "password" : "",
              }
 
 # --> RUTAS
