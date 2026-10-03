@@ -2,10 +2,13 @@ import mysql.connector
 from bd.conexion import ConexionDB 
 
 class Usuario:
-    def validar_login(self, username, password):
+    
+    @staticmethod
+    def validar_login(username, password):
         # Conexión a la base de datos
         db = ConexionDB()
         conexion = db.conectar()
+        # ... (todo el resto de tu código se queda exactamente igual)
 
         # Si la conexión falla, retornamos None
         if conexion is None:
