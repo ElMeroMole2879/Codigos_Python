@@ -1,6 +1,9 @@
 import os
 import subprocess
+import time
 from datetime import datetime
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import acceso_bd
 
 # Clase para gestionar respaldos de bases de datos MySQL
@@ -25,7 +28,6 @@ class GestorRespaldos:
         # Generamos un nombre único con la fecha y hora actual
         fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-        # FIX: Usamos acceso_bd['database'] en lugar de self.db_name
         nombre_archivo = f"backup_{acceso_bd['database']}_{fecha_hora}.sql"
         ruta_completa = os.path.join(self.carpeta_respaldo, nombre_archivo)
 
@@ -44,6 +46,10 @@ class GestorRespaldos:
                 subprocess.run(comando, stdout=archivo_salida, check=True)
                 
             print(f"¡Respaldo creado con éxito!\nRuta: {ruta_completa}")
+            
+            # Mantenimiento de Servidor
+            self._limpiar_respaldos_antiguos(dias_maximos=30)
+            
             return True
         except subprocess.CalledProcessError as e:
             print(f"Error al generar el respaldo: {e}")
@@ -64,7 +70,7 @@ class GestorRespaldos:
         # Abrimos el archivo .sql y lo inyectamos a la base de datos
         try:
             with open(ruta_archivo, "r", encoding="utf-8") as archivo_entrada:
-                # El parámetro stdin "empuja" el texto del archivo hacia MySQL
+                # El parámetro stdin empuja el texto del archivo hacia MySQL
                 subprocess.run(comando, stdin=archivo_entrada, check=True)
             print(f"Base de datos restaurada con éxito desde: {ruta_archivo}")
             return True
@@ -78,3 +84,25 @@ class GestorRespaldos:
         except Exception as e:
             print(f"Error inesperado: {e}")
             return False
+
+    def _limpiar_respaldos_antiguos(self, dias_maximos=30):
+        # Elimina los archivos .sql que tengan más de X días de antigüedad en la carpeta respaldo.
+        tiempo_actual = time.time()
+        tiempo_maximo = dias_maximos * 86400 # 86400 son los segundos que tiene un día
+        
+        # Iteramos por todos los archivos dentro de la carpeta de respaldos
+        for nombre_archivo in os.listdir(self.carpeta_respaldo):
+            ruta_archivo = os.path.join(self.carpeta_respaldo, nombre_archivo)
+            
+            # Validamos que sea un archivo y que termine en .sql
+            if os.path.isfile(ruta_archivo) and nombre_archivo.endswith('.sql'):
+                # Obtenemos la fecha en la que se modificó/creó el archivo
+                tiempo_modificacion = os.path.getmtime(ruta_archivo)
+                
+                # Si la diferencia de tiempo es mayor al límite, lo borramos
+                if (tiempo_actual - tiempo_modificacion) > tiempo_maximo:
+                    try:
+                        os.remove(ruta_archivo)
+                        print(f"Mantenimiento: Respaldo antiguo eliminado -> {nombre_archivo}")
+                    except Exception as e:
+                        print(f"Mantenimiento: No se pudo eliminar el respaldo {nombre_archivo}. Error: {e}")

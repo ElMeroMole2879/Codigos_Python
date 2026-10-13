@@ -32,9 +32,9 @@ class EntradaInventario:
                 return True
                 
             except Exception as e:
-                # Si algo falla (ej. el producto no existe), deshacemos AMBAS operaciones
+                # Si algo falla, deshacemos AMBAS operaciones
                 print(f"Error al registrar entrada de inventario: {e}")
-                conexion.rollback() # rollback para deshacer cambios
+                conexion.rollback() 
                 return False
             finally:
                 cursor.close()
@@ -50,8 +50,6 @@ class EntradaInventario:
         if conexion:
             try:
                 cursor = conexion.cursor(dictionary=True) 
-                
-                # Usamos INNER JOIN para saber qué producto compramos sin ver puros números
                 sql = """
                 SELECT 
                     e.id_entrada,
@@ -65,12 +63,6 @@ class EntradaInventario:
                 INNER JOIN Productos p ON e.id_producto = p.id_producto
                 ORDER BY e.fecha_llegada DESC
                 """
-                # Glosario
-                # e: Entradas_Inventario
-                # p: Productos
-                # INNER JOIN Productos p ON e.id_producto = p.id_producto
-                # Dice que de la tabla Entradas_Inventario (e) se va a unir con la tabla Productos (p) donde el id_producto de Entradas coincida con el id_producto de Productos.
-                
                 cursor.execute(sql)
                 return cursor.fetchall()
             except Exception as e:
@@ -80,3 +72,58 @@ class EntradaInventario:
                 cursor.close()
                 db.desconectar()
         return []
+    
+    @staticmethod
+    def eliminar_entrada_por_error(id_entrada):
+        
+        # BORRADO FÍSICO (DELETE) con reversión de inventario.
+        # Borra el registro de compra y le RESTA esa cantidad al stock principal.
+        
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor(dictionary=True)
+                
+                # Consultar de cuánto fue la entrada original y a qué producto pertenece
+                cursor.execute("SELECT id_producto, cantidad FROM Entradas_Inventario WHERE id_entrada = %s", (id_entrada,))
+                entrada = cursor.fetchone()
+                
+                if not entrada:
+                    print("Error: No se encontró el registro de entrada.")
+                    return False
+                    
+                id_prod = entrada['id_producto']
+                cantidad_a_restar = entrada['cantidad']
+                
+                # Consultar el stock actual del producto para evitar números negativos
+                cursor.execute("SELECT stock_total FROM Productos WHERE id_producto = %s", (id_prod,))
+                stock_actual = cursor.fetchone()['stock_total']
+                
+                if (stock_actual - cantidad_a_restar) < 0:
+                    print(f"Alerta: No se puede borrar esta entrada. El stock quedaría en negativo ({- (stock_actual - cantidad_a_restar)}).")
+                    print("Probablemente parte de esta mercancía ya fue vendida en la caja.")
+                    return False
+                
+                # Restar el stock en la tabla Productos
+                sql_restar_stock = "UPDATE Productos SET stock_total = stock_total - %s WHERE id_producto = %s"
+                cursor.execute(sql_restar_stock, (cantidad_a_restar, id_prod))
+                
+                # Eliminar el registro histórico de la entrada
+                sql_borrar_entrada = "DELETE FROM Entradas_Inventario WHERE id_entrada = %s"
+                cursor.execute(sql_borrar_entrada, (id_entrada,))
+                
+                # Sellamos las dos operaciones
+                conexion.commit()
+                print(f"Éxito: Entrada {id_entrada} eliminada. Se descontaron {cantidad_a_restar} unidades del inventario.")
+                return True
+                
+            except Exception as e:
+                print(f"Error al intentar eliminar la entrada: {e}")
+                conexion.rollback()
+                return False
+            finally:
+                cursor.close()
+                db.desconectar()
+        return False

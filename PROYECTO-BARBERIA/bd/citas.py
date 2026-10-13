@@ -4,14 +4,30 @@ class Cita:
     
     @staticmethod
     def agendar_cita(id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita):
-        #Registra una nueva cita en la base de datos. El estado será 'Pendiente' por defecto.
+        # Registra una nueva cita verificando que el barbero esté disponible en ese horario.
         db = ConexionDB()
         conexion = db.conectar()
         
         if conexion:
             try:
                 cursor = conexion.cursor()
-                # No incluimos 'estado' en el INSERT porque la BD le pone 'Pendiente' en automático
+                
+                # --- VALIDACIÓN DE OVERBOOKING (NUEVO) ---
+                # Revisa si el barbero ya tiene una cita 'Pendiente' o 'Completada' a esa hora.
+                # Ignora las citas que fueron 'Canceladas'
+                sql_disponibilidad = """
+                    SELECT id_cita FROM Citas 
+                    WHERE id_empleado = %s AND fecha_cita = %s AND hora_cita = %s 
+                    AND estado IN ('Pendiente', 'Completada')
+                """
+                cursor.execute(sql_disponibilidad, (id_empleado, fecha_cita, hora_cita))
+                
+                if cursor.fetchone():
+                    print("Error: El barbero seleccionado ya tiene una cita ocupada en ese horario.")
+                    return False
+                # ----------------------------------------
+                
+                # Inserción de la cita
                 sql = """INSERT INTO Citas (id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita) 
                          VALUES (%s, %s, %s, %s, %s)"""
                 valores = (id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita)
@@ -32,14 +48,13 @@ class Cita:
 
     @staticmethod
     def obtener_todas_las_citas():
-        #Trae la agenda completa uniendo las tablas para mostrar texto legible en lugar de puros IDs.
+        # Trae la agenda completa uniendo las tablas para mostrar texto legible.
         db = ConexionDB()
         conexion = db.conectar()
         
         if conexion:
             try:
                 cursor = conexion.cursor(dictionary=True) 
-                # Uso de INNER JOIN para cruzar las 4 tablas involucradas
                 sql = """
                 SELECT
                     c.id_cita,
@@ -61,14 +76,6 @@ class Cita:
                 WHERE cl.activo = True AND e.activo = True
                 ORDER BY c.fecha_cita ASC, c.hora_cita ASC
                 """
-                # Glosario
-                # c: Citas
-                # cl: Clientes
-                # e: Empleados
-                # s: Servicios
-                # INNER JOIN Clientes cl ON c.id_cliente = cl.id_cliente
-                # Dice que de la tabla Citas (c) se va a unir con la tabla Clientes (cl) donde el id_cliente de Citas coincida con el id_cliente de Clientes.
-                # SELECT SELECCIONA LOS CAMPOS QUE QUEREMOS MOSTRAR, INCLUYENDO ALIAS PARA NOMBRES MÁS CLAROS.
                 cursor.execute(sql)
                 return cursor.fetchall()
             except Exception as e:
@@ -81,7 +88,7 @@ class Cita:
 
     @staticmethod
     def actualizar_estado_cita(id_cita, nuevo_estado):
-        #Cambia el estado de una cita ('Pendiente', 'Completada', 'Cancelada').
+        # Cambia el estado de una cita ('Pendiente', 'Completada', 'Cancelada').
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -98,6 +105,39 @@ class Cita:
                 
             except Exception as e:
                 print(f"Error al actualizar estado: {e}")
+                conexion.rollback()
+                return False
+            finally:
+                cursor.close()
+                db.desconectar()
+        return False
+        
+    @staticmethod
+    def eliminar_cita_por_error(id_cita):
+        """
+        BORRADO FÍSICO (DELETE).
+        Elimina la cita por completo de la base de datos si hubo un error de dedo al capturarla.
+        """
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor()
+                sql = "DELETE FROM Citas WHERE id_cita = %s"
+                cursor.execute(sql, (id_cita,))
+                
+                # rowcount nos dice cuántos registros se vieron afectados por el DELETE
+                if cursor.rowcount > 0:
+                    conexion.commit()
+                    print(f"Éxito: Cita {id_cita} eliminada físicamente (borrado seguro).")
+                    return True
+                else:
+                    print(f"Error: No se encontró la cita {id_cita} para eliminar.")
+                    return False
+                
+            except Exception as e:
+                print(f"Error al intentar eliminar la cita: {e}")
                 conexion.rollback()
                 return False
             finally:

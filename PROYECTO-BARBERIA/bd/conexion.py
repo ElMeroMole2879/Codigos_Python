@@ -19,14 +19,16 @@ class ConexionDB:
                 user=self.credenciales["user"],
                 password=self.credenciales["password"],
                 database=self.credenciales["database"],
-                port=self.credenciales["port"]
-            )
+                port=self.credenciales["port"],
+                connection_timeout=5 # Tiempo de espera de 5 segundos para la conexión
+                )
             
             if self.conexion.is_connected():
                 return self.conexion
                 
         except Error as e:
-            print(f"Error al conectar a MySQL: {e}")
+            # Si se le olvida prender el servidor
+            print(f"Alerta Crítica: No hay conexión a la BD. Revisa tu conexión o enciende el servidor MySQL. Detalle: {e}")
             return None
 
     def desconectar(self):
