@@ -11,10 +11,10 @@ class Cita:
         if conexion:
             try:
                 cursor = conexion.cursor()
-                
-                # --- VALIDACIÓN DE OVERBOOKING (NUEVO) ---
+    
                 # Revisa si el barbero ya tiene una cita 'Pendiente' o 'Completada' a esa hora.
                 # Ignora las citas que fueron 'Canceladas'
+
                 sql_disponibilidad = """
                     SELECT id_cita FROM Citas 
                     WHERE id_empleado = %s AND fecha_cita = %s AND hora_cita = %s 
@@ -25,7 +25,6 @@ class Cita:
                 if cursor.fetchone():
                     print("Error: El barbero seleccionado ya tiene una cita ocupada en ese horario.")
                     return False
-                # ----------------------------------------
                 
                 # Inserción de la cita
                 sql = """INSERT INTO Citas (id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita) 
@@ -114,10 +113,10 @@ class Cita:
         
     @staticmethod
     def eliminar_cita_por_error(id_cita):
-        """
-        BORRADO FÍSICO (DELETE).
-        Elimina la cita por completo de la base de datos si hubo un error de dedo al capturarla.
-        """
+        
+        # BORRADO FÍSICO (DELETE).
+        # Elimina la cita por completo de la base de datos si hubo un error de dedo al capturarla.
+        
         db = ConexionDB()
         conexion = db.conectar()
         
