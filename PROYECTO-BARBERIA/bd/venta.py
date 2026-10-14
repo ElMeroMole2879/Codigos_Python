@@ -6,8 +6,8 @@ class Venta:
     @staticmethod
     def registrar_venta(id_cliente, id_usuario, metodo_pago, total, lista_servicios, lista_productos):
         #Registra una venta completa (Ticket + Detalles + Descuento de Stock).
-        # - lista_servicios: lista de diccionarios [{'id_servicio': 1, 'id_empleado': 2, 'precio_cobrado': 250.00}]
-        # - lista_productos: lista de diccionarios [{'id_producto': 3, 'cantidad': 1, 'precio_cobrado': 150.00}]
+        # lista_servicios: lista de diccionarios [{'id_servicio': 1, 'id_empleado': 2, 'precio_cobrado': 250.00}]
+        # lista_productos: lista de diccionarios [{'id_producto': 3, 'cantidad': 1, 'precio_cobrado': 150.00}]
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -37,11 +37,9 @@ class Venta:
                 sql_venta = """INSERT INTO Ventas (id_cliente, id_usuario, fecha_hora, total, metodo_pago) 
                                VALUES (%s, %s, %s, %s, %s)"""
                 cursor.execute(sql_venta, (id_cliente, id_usuario, fecha_hora, total, metodo_pago))
-                # sql_venta es la consulta SQL que inserta un nuevo registro en la tabla Ventas.
                 
                 # Obtener el ID de la venta que se acaba de generar para usarlo en los detalles
                 id_venta = cursor.lastrowid
-                # lastrowid nos da el último ID insertado en la tabla Ventas, que es el ticket que acabamos de crear.
                 
                 # Registrar los servicios realizados (para las comisiones)
                 if lista_servicios:
@@ -60,8 +58,6 @@ class Venta:
                                              SET stock_total = stock_total - %s 
                                              WHERE id_producto = %s"""
 
-                    # %s nos permite pasar los valores de manera segura, evitando inyecciones SQL.
-                    
                     for prod in lista_productos:
                         # Insertar en el detalle del ticket
                         cursor.execute(sql_detalle_prod, (id_venta, prod['id_producto'], prod['cantidad'], prod['precio_cobrado']))
@@ -98,9 +94,10 @@ class Venta:
                     SELECT v.id_venta, v.fecha_hora, v.total, v.metodo_pago, 
                            c.nombres AS cliente_nombres, c.primer_apellido AS cliente_apellido
                     FROM Ventas v
-                    INNER JOIN Clientes c ON v.id_cliente = c.id_cliente
+                    LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
                     WHERE v.id_venta = %s
                 """, (id_venta,))
+                # NOTA: Cambié a LEFT JOIN porque si borraron al cliente o fue "al público en general", aún así debe mostrar el ticket.
                 venta = cursor.fetchone()
                 
                 if not venta:
@@ -125,7 +122,7 @@ class Venta:
                 """, (id_venta,))
                 productos = cursor.fetchall()
 
-                # Empaquetamos todo en un diccionario maestro para la impresora o pantalla
+                # Empaquetamos todo en un diccionario para la impresora o pantalla
                 return {
                     "ticket": venta,
                     "servicios": servicios,
@@ -139,3 +136,52 @@ class Venta:
                 cursor.close()
                 db.desconectar()
         return None
+
+    @staticmethod
+    def cancelar_venta_por_error(id_venta):
+        
+        # BORRADO FÍSICO CON REVERSIÓN DE INVENTARIO Y COMISIONES.
+        # Elimina el ticket, le quita la comisión al barbero y devuelve los productos al estante.
+        
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor(dictionary=True)
+                
+                # Validar que la venta exista antes de hacer nada
+                cursor.execute("SELECT id_venta FROM Ventas WHERE id_venta = %s", (id_venta,))
+                if not cursor.fetchone():
+                    print(f"Error: No se encontró el ticket #{id_venta}.")
+                    return False
+
+                # Rescatar los productos que se vendieron para devolverlos al stock
+                cursor.execute("SELECT id_producto, cantidad FROM Detalle_Venta_Productos WHERE id_venta = %s", (id_venta,))
+                productos_vendidos = cursor.fetchall()
+                
+                # Devolver los productos al estante (Sumar stock_total)
+                if productos_vendidos:
+                    sql_devolver_stock = "UPDATE Productos SET stock_total = stock_total + %s WHERE id_producto = %s"
+                    for prod in productos_vendidos:
+                        cursor.execute(sql_devolver_stock, (prod['cantidad'], prod['id_producto']))
+
+                # Eliminar el ticket principal (Tabla Ventas)
+                # al borrar el ticket principal, MySQL borrará automáticamente las comisiones y 
+                # los detalles de producto. Gracias a ON DELETE CASCADE
+                cursor.execute("DELETE FROM Ventas WHERE id_venta = %s", (id_venta,))
+                
+                # Sellamos toda la operación en bloque
+                conexion.commit()
+                print(f"Éxito: Venta #{id_venta} cancelada. Inventario restaurado y comisiones eliminadas.")
+                return True
+                
+            except Exception as e:
+                # Si algo sale mal hacemos rollback para no descuadrar la caja
+                print(f"Error crítico al intentar cancelar la venta: {e}")
+                conexion.rollback()
+                return False
+            finally:
+                cursor.close()
+                db.desconectar()
+        return False

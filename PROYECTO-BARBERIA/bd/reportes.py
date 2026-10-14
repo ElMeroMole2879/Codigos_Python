@@ -5,8 +5,10 @@ class Reporte:
 
     @staticmethod
     def obtener_corte_caja_diario(fecha=None):
-        # Calcula el total vendido en un día, separado por método de pago.
-        # Si no se le pasa una fecha, hace el corte del día de hoy automáticamente.
+        """
+        Calcula el total vendido en un día, separado por método de pago.
+        Si no se le pasa una fecha, hace el corte del día de hoy automáticamente.
+        """
         # Si el administrador no elige una fecha en el calendario, usamos la de hoy
         if fecha is None:
             fecha = date.today().strftime('%Y-%m-%d')
@@ -19,7 +21,6 @@ class Reporte:
                 cursor = conexion.cursor(dictionary=True)
                 
                 # Obtener el resumen por método de pago (Efectivo, Tarjeta, Transferencia)
-                # DATE(fecha_hora) extrae solo la fecha (año-mes-día) e ignora la hora del ticket
                 sql_pagos = """
                     SELECT metodo_pago, SUM(total) as total_recaudado, COUNT(id_venta) as numero_tickets
                     FROM Ventas 
@@ -28,6 +29,16 @@ class Reporte:
                 """
                 cursor.execute(sql_pagos, (fecha,))
                 desglose_pagos = cursor.fetchall()
+            
+                # Si el desglose está vacío, lo llenamos con ceros para que
+                # no arroje error al intentar leer una lista vacía.
+                if not desglose_pagos:
+                     desglose_pagos = [
+                         {"metodo_pago": "Efectivo", "total_recaudado": 0.0, "numero_tickets": 0},
+                         {"metodo_pago": "Tarjeta", "total_recaudado": 0.0, "numero_tickets": 0},
+                         {"metodo_pago": "Transferencia", "total_recaudado": 0.0, "numero_tickets": 0}
+                     ]
+                # ----------------------------------------
 
                 # Obtener el Gran Total de todo el día
                 sql_total = """
@@ -39,9 +50,9 @@ class Reporte:
                 resultado_total = cursor.fetchone()
                 
                 # Si no hubo ventas, evitamos que regrese "None" y ponemos 0.0
-                gran_total = float(resultado_total['gran_total']) if resultado_total['gran_total'] else 0.0
+                gran_total = float(resultado_total['gran_total']) if resultado_total and resultado_total['gran_total'] else 0.0
 
-                # Empaquetamos todo en un diccionario súper limpio para el frontend
+                # Empaquetamos todo en un diccionario
                 return {
                     "fecha_corte": fecha,
                     "desglose_por_metodo": desglose_pagos,

@@ -1,50 +1,99 @@
+import sys
+import os
+
+# Aseguramos que Python encuentre la carpeta bd/
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 from bd.usuario import Usuario
+from bd.producto import Producto
+from bd.servicios import Servicio
 from bd.cliente import Cliente
-from bd.citas import Cita
-from bd.finanzas import Finanzas
+from bd.empleados import Empleado
+from bd.venta import Venta
+from bd.reportes import Reporte
 
-def simular_frontend():
-    print("=========================================")
-    print("  SIMULACIÓN DE BACKEND PARA EL EQUIPO   ")
-    print("=========================================\n")
+def simular_sistema():
+    print("==================================================")
+    print("   PRUEBA BACKEND  ")
+    print("==================================================")
 
-    print("--- PASO 1: PRUEBA DE INICIO DE SESIÓN (LOGIN) ---")
-    print("-> El frontend envía: Usuario 'admin' / Password '12345'")
-    usuario_valido = Usuario.validar_login('admin', '12345')
+    # PRUEBA DE LOGIN
+    print("\n[1] Probando Inicio de Sesión...")
+    # Usamos el usuario admin por defecto creado en la inicialización
+    usuario_logueado = Usuario.validar_login("admin", "12345")
     
-    if usuario_valido == "INACTIVO":
-        print("BACKEND RESPONDE: El usuario existe pero está dado de baja.")
-    elif usuario_valido:
-        print(f"BACKEND RESPONDE: Login exitoso. Rol = {usuario_valido['rol']}, ID = {usuario_valido['id_usuario']}")
+    if usuario_logueado and usuario_logueado != "INACTIVO":
+        print(f"-> Login exitoso Bienvenido al sistema, {usuario_logueado['nombres']} ({usuario_logueado['rol']}).")
     else:
-        print("BACKEND RESPONDE: Error de credenciales.")
+        print(" Error: No se pudo iniciar sesión. Verifica que hayas ejecutado 'inicializar_bd.py'.")
+        return
 
-    print("\n--- PASO 2: PRUEBA DE REGISTRO DE CLIENTE Y CITA ---")
-    print("-> El frontend envía datos para un nuevo cliente: 'Juan Perez Gomez'")
+    # CONSULTAR CATÁLOGOS (Productos y Servicios)
+    print("\n [2] Consultando Catálogos Disponibles...")
+    productos = Producto.obtener_todos_los_productos()
+    servicios = Servicio.obtener_todos_los_servicios()
     
-    # Probamos el registro del cliente
-    exito_cliente = Cliente.registrar_cliente('Juan', 'Perez', 'Gomez', '8181234567', 'Low Fade')
-    if exito_cliente:
-        print("BACKEND RESPONDE: Cliente guardado correctamente en la BD.")
+    print(f"Productos en inventario: {len(productos)}")
+    for p in productos:
+        print(f" ID: {p['id_producto']} | {p['nombre_producto']} ({p['marca']}) - Stock: {p['stock_total']} - Precio: ${p['precio_venta_actual']}")
+
+    print(f" Servicios disponibles: {len(servicios)}")
+    for s in servicios:
+        print(f" ID: {s['id_servicio']} | {s['nombre_servicio']} - ${s['precio_actual']} ({s['duracion_minutos']} mins)")
+
+    # SIMULAR UNA VENTA COMPLETA (Punto de Venta)
+    print("\n[3] Simulando una Venta en Caja...")
+    # Para esta prueba, asumimos que ya existe un cliente y un empleado en la base de datos.
+    id_cliente_prueba = 1 
+    id_empleado_prueba = 1
+    id_usuario_prueba = usuario_logueado['id_usuario']
+
+    # Simularemos que el cliente compra 1 Cera (ID 1) y se hace un Corte (ID 1)
+    # Buscamos el precio real del primer producto y primer servicio si existen
+    if productos and servicios:
+        prod_sel = productos[0]
+        serv_sel = servicios[0]
+
+        lista_servicios = [
+            {"id_servicio": serv_sel['id_servicio'], "id_empleado": id_empleado_prueba, "precio_cobrado": float(serv_sel['precio_actual'])}
+        ]
+        
+        lista_productos = [
+            {"id_producto": prod_sel['id_producto'], "cantidad": 1, "precio_cobrado": float(prod_sel['precio_venta_actual'])}
+        ]
+
+        total_venta = float(serv_sel['precio_actual']) + float(prod_sel['precio_venta_actual'])
+        metodo_pago = "Efectivo"
+
+        print(f" Procesando ticket por un total de ${total_venta}...")
+        id_venta_generada = Venta.registrar_venta(
+            id_cliente=id_cliente_prueba,
+            id_usuario=id_usuario_prueba,
+            metodo_pago=metodo_pago,
+            total=total_venta,
+            lista_servicios=lista_servicios,
+            lista_productos=lista_productos
+        )
+
+        if id_venta_generada:
+            print(f" Venta registrada con éxito bajo el Ticket #{id_venta_generada}")
+
+            # VERIFICAR CORTE DE CAJA DIARIO
+            print("\n[4] Consultando Corte de Caja del Día")
+            corte = Reporte.obtener_corte_caja_diario()
+            print(f" Fecha del Corte: {corte['fecha_corte']}")
+            print(f" Gran Total Vendido: ${corte['gran_total_del_dia']}")
+            print(f" Desglose por método de pago:")
+            for desglose in corte['desglose_por_metodo']:
+                print(f" * {desglose['metodo_pago']}: ${desglose['total_recaudado']} ({desglose['numero_tickets']} tickets)")
+        else:
+            print(" La venta no pudo completarse (probablemente por falta de stock).")
     else:
-        print("BACKEND RESPONDE: Fallo al guardar cliente.")
+        print(" Advertencia: No hay suficientes productos o servicios en la BD para simular la venta. Agrega algunos desde la BD o inicializala.")
 
-    print("\n-> El frontend solicita agendar una cita (Asumiendo Cliente 1, Barbero 1, Servicio 1)...")
-    # Probamos agendar la cita para el 15 de octubre
-    exito_cita = Cita.agendar_cita(1, 1, 1, '2026-10-15', '15:00:00')
-    if exito_cita:
-        print("BACKEND RESPONDE: Cita agendada correctamente con estado 'Pendiente'.")
-    else:
-        print("BACKEND RESPONDE: Error al agendar cita. (Aviso: La BD protegió la integridad referencial).")
+    print("\n==================================================")
+    print("      PRUEBA FINALIZADA CORRECTAMENTE            ")
+    print("==================================================")
 
-    print("\n--- PASO 3: MÓDULO DE FINANZAS (DESGLOSADO) ---")
-    
-    # Probamos el reporte detallado del día
-    finanzas_dia = Finanzas.obtener_ingresos_detallados('dia')
-    print("-> El frontend consulta el corte de caja de HOY:")
-    print(f"   - Total General en Caja: ${finanzas_dia['total_general']:.2f}")
-    print(f"   - Ingresos por Servicios (Cortes): ${finanzas_dia['total_servicios']:.2f}")
-    print(f"   - Ingresos por Productos (Mostrador): ${finanzas_dia['total_productos']:.2f}")
-    
 if __name__ == "__main__":
-    simular_frontend()
+    simular_sistema()
