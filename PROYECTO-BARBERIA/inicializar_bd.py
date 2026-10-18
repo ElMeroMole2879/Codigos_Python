@@ -19,14 +19,14 @@ class InicializadorBD:
                 cursor = conexion.cursor()
                 nombre_bd = self.credenciales["database"]
 
-                print(f"Preparando arquitectura para: {nombre_bd}...")
-                cursor.execute(f"DROP DATABASE IF EXISTS {nombre_bd};")
-                cursor.execute(f"CREATE DATABASE {nombre_bd} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+                # 1. CREAMOS LA BD SOLO SI NO EXISTE (Quitamos el DROP DATABASE)
+                cursor.execute(f"CREATE DATABASE IF NOT EXISTS {nombre_bd} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
                 cursor.execute(f"USE {nombre_bd};")
 
+                # 2. AGREGAMOS "IF NOT EXISTS" A TODAS LAS TABLAS
                 # TABLA 1: Usuarios
                 cursor.execute("""
-                CREATE TABLE Usuarios (
+                CREATE TABLE IF NOT EXISTS Usuarios (
                     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
                     nombres VARCHAR(50) NOT NULL,
                     primer_apellido VARCHAR(50) NOT NULL,
@@ -41,7 +41,7 @@ class InicializadorBD:
 
                 # TABLA 2: Empleados
                 cursor.execute("""
-                CREATE TABLE Empleados (
+                CREATE TABLE IF NOT EXISTS Empleados (
                     id_empleado INT AUTO_INCREMENT PRIMARY KEY,
                     nombres VARCHAR(50) NOT NULL,
                     primer_apellido VARCHAR(50) NOT NULL,
@@ -63,7 +63,7 @@ class InicializadorBD:
 
                 # TABLA 3: Clientes 
                 cursor.execute("""
-                CREATE TABLE Clientes (
+                CREATE TABLE IF NOT EXISTS Clientes (
                     id_cliente INT AUTO_INCREMENT PRIMARY KEY,
                     nombres VARCHAR(50) NOT NULL,
                     primer_apellido VARCHAR(50) NOT NULL,
@@ -76,7 +76,7 @@ class InicializadorBD:
 
                 # TABLA 4: Servicios
                 cursor.execute("""
-                CREATE TABLE Servicios (
+                CREATE TABLE IF NOT EXISTS Servicios (
                     id_servicio INT AUTO_INCREMENT PRIMARY KEY,
                     nombre_servicio VARCHAR(100) NOT NULL,
                     precio_actual DECIMAL(10, 2) NOT NULL,
@@ -86,7 +86,7 @@ class InicializadorBD:
 
                 # TABLA 5: Productos
                 cursor.execute("""
-                CREATE TABLE Productos (
+                CREATE TABLE IF NOT EXISTS Productos (
                     id_producto INT AUTO_INCREMENT PRIMARY KEY,
                     nombre_producto VARCHAR(100) NOT NULL,
                     marca VARCHAR(50) NOT NULL,
@@ -97,7 +97,7 @@ class InicializadorBD:
 
                 # TABLA 6: Entradas de Inventario
                 cursor.execute("""
-                CREATE TABLE Entradas_Inventario (
+                CREATE TABLE IF NOT EXISTS Entradas_Inventario (
                     id_entrada INT AUTO_INCREMENT PRIMARY KEY,
                     id_producto INT NOT NULL,
                     fecha_llegada DATE NOT NULL,
@@ -110,7 +110,7 @@ class InicializadorBD:
 
                 # TABLA 7: Citas
                 cursor.execute("""
-                CREATE TABLE Citas (
+                CREATE TABLE IF NOT EXISTS Citas (
                     id_cita INT AUTO_INCREMENT PRIMARY KEY,
                     id_cliente INT NOT NULL,
                     id_empleado INT NOT NULL, 
@@ -126,7 +126,7 @@ class InicializadorBD:
 
                 # TABLA 8: Notas del Historial del Cliente
                 cursor.execute("""
-                CREATE TABLE Notas_Historial_Cliente (
+                CREATE TABLE IF NOT EXISTS Notas_Historial_Cliente (
                     id_nota INT AUTO_INCREMENT PRIMARY KEY,
                     id_cliente INT NOT NULL,
                     id_empleado INT NOT NULL, 
@@ -137,9 +137,9 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 9: Ventas (Ticket principal)
+                # TABLA 9: Ventas 
                 cursor.execute("""
-                CREATE TABLE Ventas (
+                CREATE TABLE IF NOT EXISTS Ventas (
                     id_venta INT AUTO_INCREMENT PRIMARY KEY,
                     id_cliente INT, 
                     id_usuario INT NOT NULL, 
@@ -151,9 +151,9 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 10: Detalle de Venta - Servicios (Para comisiones)
+                # TABLA 10: Detalle de Venta - Servicios
                 cursor.execute("""
-                CREATE TABLE Detalle_Venta_Servicios (
+                CREATE TABLE IF NOT EXISTS Detalle_Venta_Servicios (
                     id_detalle_servicio INT AUTO_INCREMENT PRIMARY KEY,
                     id_venta INT NOT NULL,
                     id_servicio INT NOT NULL,
@@ -165,9 +165,9 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 11: Detalle de Venta - Productos (Para descontar stock)
+                # TABLA 11: Detalle de Venta - Productos
                 cursor.execute("""
-                CREATE TABLE Detalle_Venta_Productos (
+                CREATE TABLE IF NOT EXISTS Detalle_Venta_Productos (
                     id_detalle_producto INT AUTO_INCREMENT PRIMARY KEY,
                     id_venta INT NOT NULL,
                     id_producto INT NOT NULL,
@@ -178,15 +178,13 @@ class InicializadorBD:
                 );
                 """)
 
-                # Inserción del usuario administrador por defecto
-                # Si no se hace esto, no habrá forma de entrar al sistema la primera vez.
+                # USAMOS "INSERT IGNORE" PARA NO DUPLICAR AL ADMIN SI YA EXISTE
                 cursor.execute("""
-                INSERT INTO Usuarios (nombres, primer_apellido, username, password, rol) 
+                INSERT IGNORE INTO Usuarios (nombres, primer_apellido, username, password, rol) 
                 VALUES ('Admin', 'Sistema', 'admin', '12345', 'Dueño');
                 """)
 
                 conexion.commit()
-                print("Base de datos y tablas creadas exitosamente. Usuario administrador 'admin' con contraseña '12345'.")
                 
         except Error as e:
             print(f"Error al configurar la base de datos: {e}")
