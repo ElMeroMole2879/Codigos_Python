@@ -3,17 +3,19 @@ Interfaz gráfica (Tkinter) del sistema de la barbería — adaptada al backend 
 login, empleados, inventario y finanzas.
 
 Archivos que deben estar junto a este, en la misma carpeta:
-    config.py, inicializar_bd.py, main.py, y la carpeta bd/ completa
+   config.py, inicializar_bd.py, main.py, y la carpeta bd/ completa
 
 Antes de la primera vez:
-    python inicializar_bd.py
-    (OJO: ese script BORRA la base de datos si ya existía y la vuelve a crear vacía,
-    con el usuario admin/12345. Solo se ejecuta UNA vez, a mano. Esta interfaz nunca
-    lo llama sola, para no borrar tu información sin querer.)
+   python inicializar_bd.py
+   (OJO: ese script BORRA la base de datos si ya existía y la vuelve a crear vacía,
+   con el usuario admin/12345. Solo se ejecuta UNA vez, a mano. Esta interfaz nunca
+   lo llama sola, para no borrar tu información sin querer.)
 
 Requisito:  pip install mysql-connector-python
 Ejecutar:   python interfaz.py
 """
+import ctypes
+import os
 import tkinter as tk
 import tkinter.font as tkfont
 from datetime import date, datetime, timedelta
@@ -37,6 +39,15 @@ from bd.reportes import Reporte
 from bd.servicios import Servicio
 from bd.usuario import Usuario
 from bd.venta import Venta
+
+# ----------------------------------------------------------------------
+# Independizar icono en la barra de tareas de Windows
+# ----------------------------------------------------------------------
+try:
+    app_id = 'mi_barberia.sistema_gestion.1_0'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+except Exception:
+    pass
 
 # ----------------------------------------------------------------------
 # Apariencia
@@ -76,6 +87,42 @@ class ErrorOperacion(Exception):
 # ----------------------------------------------------------------------
 # Utilidades generales
 # ----------------------------------------------------------------------
+
+class EntradaValidada(ttk.Entry):
+    """
+    Caja de texto personalizada que bloquea el teclado según el tipo de dato.
+    Tipos soportados: 'texto' (por defecto), 'entero' (solo números), 'decimal' (números y un punto),
+    'letras' (solo letras y espacios, sin números).
+    """
+    def __init__(self, padre, tipo="texto", **kwargs):
+        super().__init__(padre, **kwargs)
+        if tipo == "entero":
+            vcmd = (self.register(self._validar_entero), '%P')
+            self.configure(validate="key", validatecommand=vcmd)
+        elif tipo == "decimal":
+            vcmd = (self.register(self._validar_decimal), '%P')
+            self.configure(validate="key", validatecommand=vcmd)
+        elif tipo == "letras":
+            vcmd = (self.register(self._validar_letras), '%P')
+            self.configure(validate="key", validatecommand=vcmd)
+
+    def _validar_entero(self, P):
+        return P == "" or P.isdigit()
+
+    def _validar_decimal(self, P):
+        if P == "":
+            return True
+        if P.count('.') > 1:
+            return False
+        return P.replace('.', '').isdigit()
+
+    def _validar_letras(self, P):
+        if P == "":
+            return True
+        # Acepta letras (incluyendo acentos, ñ) y espacios. Bloquea números y símbolos.
+        return all(c.isalpha() or c.isspace() for c in P)
+
+
 def dinero(valor):
     return f"${Decimal(valor or 0):,.2f}"
 
@@ -104,7 +151,7 @@ def con_errores(funcion):
 
 
 def convertir(valor, tipo, etiqueta, obligatorio=True, largo_maximo=None, defecto="0"):
-    valor = valor.strip()
+    valor = str(valor).strip() if valor is not None else ""
     if not valor:
         if obligatorio:
             raise ValueError(f"El campo '{etiqueta}' es obligatorio.")
@@ -120,7 +167,6 @@ def convertir(valor, tipo, etiqueta, obligatorio=True, largo_maximo=None, defect
     if tipo == "entero":
         if not (valor.isascii() and valor.isdigit()) or int(valor) > 2_000_000_000:
             raise ValueError(f"'{etiqueta}' debe ser un número entero (0 o mayor).")
-        # MEJORA: Para tiempos/cantidades, normalmente no debe ser 0, pero lo dejamos como tu código base permitiendo >=0
         return int(valor)
 
     try:
@@ -154,8 +200,6 @@ def validar_hora(texto):
 
 
 def formatear_hora(valor):
-    """MySQL regresa las columnas TIME como timedelta; str() les quita el cero inicial
-    de la hora (ej. '8:05:00' en vez de '08:05:00'), así que lo formateamos a mano."""
     if isinstance(valor, timedelta):
         total = int(valor.total_seconds())
         h, resto = divmod(total, 3600)
@@ -191,11 +235,6 @@ def crear_tabla(padre, columnas, altura=8):
 
 
 def llenar_tabla(tabla, filas, claves, formatos=None, etiqueta=None):
-    """
-    filas: lista de diccionarios (así regresa todo el backend nuevo).
-    claves: nombres de columna del Treeview, en orden; claves[0] es el identificador.
-    Devuelve {id_como_texto: fila_original} para recuperar el registro al seleccionarlo.
-    """
     tabla.delete(*tabla.get_children())
     por_id = {}
     for i, fila in enumerate(filas):
@@ -222,14 +261,11 @@ def seleccionado(tabla, mensaje):
 
 
 class ComboConIds(ttk.Combobox):
-    """Desplegable de solo lectura: muestra texto, pero devuelve el id asociado."""
-
     def __init__(self, padre, **opciones):
         super().__init__(padre, state="readonly", **opciones)
         self._ids = {}
 
     def cargar(self, opciones):
-        """opciones: lista de (id, texto)."""
         anterior = self.get()
         self._ids = {}
         for id_, texto in opciones:
@@ -265,7 +301,6 @@ class BandaBarbero(tk.Canvas):
 
 
 def interpolar_color(color_izq, color_der, factor):
-    """Mezcla dos colores hex (#rrggbb) según factor (0 = color_izq, 1 = color_der)."""
     color_izq, color_der = color_izq.lstrip("#"), color_der.lstrip("#")
     r1, g1, b1 = int(color_izq[0:2], 16), int(color_izq[2:4], 16), int(color_izq[4:6], 16)
     r2, g2, b2 = int(color_der[0:2], 16), int(color_der[2:4], 16), int(color_der[4:6], 16)
@@ -276,9 +311,6 @@ def interpolar_color(color_izq, color_der, factor):
 
 
 class EncabezadoDegradado(tk.Canvas):
-    """Barra superior con relleno en degradado horizontal (tk.Canvas no soporta gradientes
-    nativamente, así que se dibuja a mano con una línea vertical por cada pixel de ancho)."""
-
     def __init__(self, padre, titulo, subtitulo, color_izq=TINTA, color_der=AZUL_POSTE, alto=58):
         super().__init__(padre, height=alto, highlightthickness=0, bd=0, bg=FONDO)
         self.titulo = titulo
@@ -298,16 +330,8 @@ class EncabezadoDegradado(tk.Canvas):
         self.create_text(22, self.alto / 2, text=self.titulo, font=FUENTE_TITULO, fill="white", anchor="w")
         self.create_text(ancho - 22, self.alto / 2, text=self.subtitulo, font=("Segoe UI", 9), fill="#dfe7f5", anchor="e")
 
-    def actualizar_subtitulo(self, texto):
-        self.subtitulo = texto
-        self._dibujar()
-
 
 class BotonDegradado(tk.Canvas):
-    """Botón con relleno en degradado horizontal; se usa en lugar de ttk.Button(style=
-    "Accent.TButton") para las acciones principales, ya que ttk no permite fondos en
-    degradado de forma nativa. Se maneja igual que un botón normal: text= y command=."""
-
     def __init__(self, padre, text, command=None, color_izq=ROJO_CLARO, color_der=ROJO_OSCURO,
                  color_hover_izq=None, color_hover_der=None, fg="white", relleno_horizontal=22, alto=34):
         super().__init__(padre, height=alto, highlightthickness=0, bd=0, bg=FONDO, cursor="hand2")
@@ -367,8 +391,6 @@ def aplicar_estilos(raiz):
 
     estilo.configure("TButton", padding=(12, 6), background="#dfe5ee", foreground=TINTA, borderwidth=1)
     estilo.map("TButton", background=[("active", "#cdd6e3")])
-    # Los botones de acción principal ya no usan un estilo ttk ("Accent.TButton"): ahora son
-    # BotonDegradado (más arriba en este archivo), porque ttk no admite fondos en degradado.
 
     estilo.configure("TNotebook", background=FONDO, borderwidth=0)
     estilo.configure("TNotebook.Tab", padding=(16, 8), background="#dfe5ee", foreground=TEXTO_SUAVE, font=FUENTE_NEGRITA)
@@ -390,11 +412,19 @@ class VentanaLogin(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Barbería · Iniciar sesión")
-        self.geometry("420x360")
+        self.geometry("420x340")
         self.resizable(False, False)
         self.configure(bg=FONDO)
         aplicar_estilos(self)
         self.usuario_autenticado = None
+
+        # Carga del logo personalizado
+        try:
+            ruta_ico = os.path.join(os.path.dirname(__file__), "logo.ico")
+            if os.path.exists(ruta_ico):
+                self.iconbitmap(ruta_ico)
+        except Exception:
+            pass  # Si hay error cargando la imagen, simplemente se usa el predeterminado de Tkinter
 
         tk.Label(self, text="Barbería", font=FUENTE_TITULO, bg=FONDO, fg=TINTA).pack(pady=(34, 0))
         BandaBarbero(self).pack(fill="x", pady=(10, 24), padx=40)
@@ -409,15 +439,10 @@ class VentanaLogin(tk.Tk):
         entrada_usuario = ttk.Entry(caja, textvariable=self.var_usuario)
         entrada_usuario.pack(fill="x", pady=(2, 14))
         ttk.Label(caja, text="Contraseña").pack(anchor="w")
-        # MEJORA APLICADA: Se usa '*' en lugar de '•' para mejor compatibilidad de fuentes
         entrada_password = ttk.Entry(caja, textvariable=self.var_password, show="*")
         entrada_password.pack(fill="x", pady=(2, 20))
 
         BotonDegradado(caja, text="Iniciar sesión", command=self.entrar).pack(fill="x")
-        ttk.Label(
-            caja, text='Primera vez: usuario "admin", contraseña "12345".',
-            foreground=TEXTO_SUAVE, wraplength=320,
-        ).pack(pady=(16, 0))
 
         entrada_usuario.bind("<Return>", lambda _e: entrada_password.focus())
         entrada_password.bind("<Return>", lambda _e: self.entrar())
@@ -609,7 +634,7 @@ class PanelVentas(ttk.Frame):
         self.cb_empleado = ComboConIds(caja, width=34)
         self.cb_empleado.pack(fill="x")
         ttk.Label(caja, text="Precio a cobrar").pack(anchor="w", pady=(8, 0))
-        ttk.Entry(caja, textvariable=self.var_precio_servicio).pack(fill="x")
+        EntradaValidada(caja, tipo="decimal", textvariable=self.var_precio_servicio).pack(fill="x")
         BotonDegradado(caja, text="Agregar servicio al ticket", command=self.agregar_servicio).pack(fill="x", pady=(10, 0))
 
         caja = ttk.LabelFrame(izquierda, text=" Agregar producto ", padding=10)
@@ -624,7 +649,7 @@ class PanelVentas(ttk.Frame):
         ttk.Spinbox(fila, from_=1, to=999, textvariable=self.var_cantidad, width=6).pack(side="left", padx=(6, 12))
         ttk.Label(fila, textvariable=self.var_stock, foreground=TEXTO_SUAVE).pack(side="left")
         ttk.Label(caja, text="Precio unitario").pack(anchor="w", pady=(8, 0))
-        ttk.Entry(caja, textvariable=self.var_precio_producto).pack(fill="x")
+        EntradaValidada(caja, tipo="decimal", textvariable=self.var_precio_producto).pack(fill="x")
         BotonDegradado(caja, text="Agregar producto al ticket", command=self.agregar_producto).pack(fill="x", pady=(10, 0))
 
         ttk.Label(derecha, text="Ticket", style="Encabezado.TLabel").pack(anchor="w")
@@ -648,7 +673,7 @@ class PanelVentas(ttk.Frame):
         fila = ttk.Frame(buscar)
         fila.pack(fill="x")
         ttk.Label(fila, text="Folio #").pack(side="left")
-        ttk.Entry(fila, textvariable=self.var_folio, width=10).pack(side="left", padx=(6, 10))
+        EntradaValidada(fila, tipo="entero", textvariable=self.var_folio, width=10).pack(side="left", padx=(6, 10))
         ttk.Button(fila, text="Buscar", command=self.buscar_folio).pack(side="left")
         ttk.Button(fila, text="Cancelar esta venta", command=self.cancelar_folio).pack(side="left", padx=6)
         ttk.Label(buscar, textvariable=self.var_resultado_folio, wraplength=560, justify="left", foreground=TEXTO_SUAVE).pack(anchor="w", pady=(8, 0))
@@ -817,12 +842,25 @@ class PanelClientes(ttk.Frame):
         formulario.pack(fill="x")
         campos = [
             ("Nombre(s) *", self.var_nombres), ("Apellido paterno *", self.var_apellido1),
-            ("Apellido materno", self.var_apellido2), ("Teléfono *", self.var_telefono),
-            ("Corte preferido", self.var_corte),
+            ("Apellido materno", self.var_apellido2), ("Teléfono *", self.var_telefono)
         ]
         for i, (texto, var) in enumerate(campos):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 4))
-            ttk.Entry(formulario, textvariable=var, width=18).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
+            
+            tipo_val = "texto"
+            if "Teléfono" in texto:
+                tipo_val = "entero"
+            elif "Nombre" in texto or "Apellido" in texto:
+                tipo_val = "letras"
+                
+            EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=18).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
+
+        ttk.Label(formulario, text="Corte preferido").grid(row=0, column=4, sticky="w", padx=(0, 4))
+        self.cb_corte = ttk.Combobox(formulario, textvariable=self.var_corte, width=18, values=[
+            "Fade / Degradado", "Casquete Corto", "Casquete Regular", "Mullet",
+            "Taper Fade", "Buzz Cut (Rapado)", "Corte Clásico a Tijera", "Texturizado", "Otro"
+        ])
+        self.cb_corte.grid(row=1, column=4, sticky="w", padx=(0, 16), pady=(0, 10))
 
         botones = ttk.Frame(formulario)
         botones.grid(row=2, column=0, columnspan=5, sticky="w")
@@ -832,13 +870,13 @@ class PanelClientes(ttk.Frame):
         ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left", padx=6)
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left")
         ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(20, 4))
-        ttk.Entry(botones, textvariable=self.var_reactivar, width=6).pack(side="left")
+        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=6).pack(side="left")
         ttk.Button(botones, text="Reactivar", command=self.reactivar).pack(side="left", padx=6)
 
         barra = ttk.Frame(self)
         barra.pack(fill="x", pady=(14, 6))
         ttk.Label(barra, text="Buscar por nombre").pack(side="left")
-        entrada = ttk.Entry(barra, textvariable=self.var_busqueda, width=24)
+        entrada = EntradaValidada(barra, tipo="letras", textvariable=self.var_busqueda, width=24)
         entrada.pack(side="left", padx=8)
         entrada.bind("<KeyRelease>", lambda _e: self.pintar_tabla())
         ttk.Button(barra, text="Actualizar", command=self.refrescar).pack(side="right")
@@ -1065,7 +1103,16 @@ class PanelEmpleados(ttk.Frame):
         for i, (texto, clave) in enumerate(etiquetas):
             fila, columna = divmod(i, 4)
             ttk.Label(formulario, text=texto).grid(row=fila * 2, column=columna, sticky="w", padx=(0, 6))
-            ttk.Entry(formulario, textvariable=self.campos[clave], width=18).grid(row=fila * 2 + 1, column=columna, sticky="w", padx=(0, 16), pady=(0, 8))
+            
+            tipo_val = "texto"
+            if clave in ("telefono", "cp"): 
+                tipo_val = "entero"
+            elif clave in ("salario_base", "porcentaje_comision"): 
+                tipo_val = "decimal"
+            elif clave in ("nombres", "primer_apellido", "segundo_apellido", "puesto"):
+                tipo_val = "letras"
+                
+            EntradaValidada(formulario, tipo=tipo_val, textvariable=self.campos[clave], width=18).grid(row=fila * 2 + 1, column=columna, sticky="w", padx=(0, 16), pady=(0, 8))
 
         botones = ttk.Frame(formulario)
         botones.grid(row=8, column=0, columnspan=4, sticky="w", pady=(6, 0))
@@ -1075,7 +1122,7 @@ class PanelEmpleados(ttk.Frame):
         ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left", padx=6)
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left")
         ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(20, 4))
-        ttk.Entry(botones, textvariable=self.var_reactivar, width=6).pack(side="left")
+        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=6).pack(side="left")
         ttk.Button(botones, text="Reactivar", command=self.reactivar).pack(side="left", padx=6)
 
         contenedor, self.tabla = crear_tabla(self, [
@@ -1267,7 +1314,13 @@ class PanelServicios(ttk.Frame):
             ("Nombre *", self.var_nombre, 26), ("Precio *", self.var_precio, 14), ("Duración (minutos) *", self.var_duracion, 14),
         ]):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            ttk.Entry(formulario, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
+            tipo_val = "texto"
+            if "Precio" in texto: tipo_val = "decimal"
+            elif "Duración" in texto: tipo_val = "entero"
+            
+            EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
         botones = ttk.Frame(formulario)
         botones.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 0))
         BotonDegradado(botones, text="Registrar servicio", command=self.registrar).pack(side="left")
@@ -1359,14 +1412,20 @@ class PanelProductos(ttk.Frame):
             ("Precio de venta *", self.var_precio, 12), ("Stock inicial", self.var_stock_inicial, 10),
         ]):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            ttk.Entry(formulario, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
+            tipo_val = "texto"
+            if "Precio" in texto: tipo_val = "decimal"
+            elif "Stock" in texto: tipo_val = "entero"
+            
+            EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
         botones = ttk.Frame(formulario)
         botones.grid(row=2, column=0, columnspan=4, sticky="w", pady=(10, 0))
         BotonDegradado(botones, text="Registrar producto", command=self.registrar).pack(side="left")
         ttk.Button(botones, text="Guardar nombre/marca del elegido", command=self.guardar_nombre_marca).pack(side="left", padx=6)
         ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left")
         ttk.Label(botones, text="   Nuevo precio del elegido:").pack(side="left", padx=(20, 4))
-        ttk.Entry(botones, textvariable=self.var_nuevo_precio, width=10).pack(side="left")
+        EntradaValidada(botones, tipo="decimal", textvariable=self.var_nuevo_precio, width=10).pack(side="left")
         ttk.Button(botones, text="Actualizar precio", command=self.actualizar_precio).pack(side="left", padx=6)
 
         contenedor, self.tabla = crear_tabla(self, [
@@ -1387,7 +1446,13 @@ class PanelProductos(ttk.Frame):
             ("Costo unitario *", self.var_costo, 12), ("Caducidad (opcional)", self.var_caducidad, 12),
         ]):
             ttk.Label(entradas, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            ttk.Entry(entradas, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
+            tipo_val = "texto"
+            if "Cantidad" in texto: tipo_val = "entero"
+            elif "Costo" in texto: tipo_val = "decimal"
+            
+            EntradaValidada(entradas, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
+            
         BotonDegradado(entradas, text="Registrar entrada (suma al stock)", command=self.registrar_entrada).grid(row=1, column=4, sticky="w")
         ttk.Button(entradas, text="Eliminar entrada por error (resta del stock)", command=self.eliminar_entrada_por_error).grid(row=1, column=5, sticky="w", padx=(10, 0))
         ttk.Label(entradas, text="Para registrar: usa el producto elegido en la tabla de arriba. Para eliminar: elige la entrada en la tabla de abajo.", foreground=TEXTO_SUAVE).grid(row=2, column=0, columnspan=6, sticky="w", pady=(6, 0))
@@ -1672,8 +1737,11 @@ class PanelUsuarios(ttk.Frame):
         ]
         for i, (texto, var, ancho) in enumerate(campos):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 4))
-            ttk.Entry(formulario, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
-        ttk.Label(formulario, text="Contraseña *").grid(row=0, column=4, sticky="w", padx=(0, 4))
+            
+            tipo_val = "letras" if "Nombre" in texto or "Apellido" in texto else "texto"
+            EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
+            
+        ttk.Label(formulario, text="Contraseña").grid(row=0, column=4, sticky="w", padx=(0, 4))
         ttk.Entry(formulario, textvariable=self.var_password, width=16, show="*").grid(row=1, column=4, sticky="w", padx=(0, 16), pady=(0, 10))
         ttk.Label(formulario, text="Rol *").grid(row=0, column=5, sticky="w", padx=(0, 4))
         self.cb_rol = ttk.Combobox(formulario, values=["Dueño", "Recepcionista"], state="readonly", width=14)
@@ -1690,8 +1758,8 @@ class PanelUsuarios(ttk.Frame):
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left", padx=6)
         ttk.Label(
             formulario, foreground=TEXTO_SUAVE, wraplength=760, justify="left",
-            text="La contraseña solo se usa para crear la cuenta; por seguridad no se vuelve a mostrar "
-                 "ni se puede editar aquí (si alguien la olvida, créale una cuenta nueva y da de baja la vieja).",
+            text="Para cambiar la contraseña del usuario elegido, escríbela y guarda los cambios. "
+                 "Si dejas el campo en blanco, se conservará la contraseña que ya tenía el usuario.",
         ).grid(row=3, column=0, columnspan=6, sticky="w", pady=(6, 0))
 
         contenedor, self.tabla = crear_tabla(self, [
@@ -1700,6 +1768,15 @@ class PanelUsuarios(ttk.Frame):
         ], altura=8)
         contenedor.pack(fill="both", expand=True, pady=(14, 0))
         self.tabla.bind("<<TreeviewSelect>>", self.al_seleccionar)
+
+    def _comprobar_unico_dueno(self, id_usuario_afectado):
+        """Retorna True si el usuario proporcionado es el ÚNICO Dueño activo en el sistema."""
+        duenos_activos = [u for u in self.filas.values() if u.get("rol") == "Dueño" and u.get("estado") == "Activo"]
+        if len(duenos_activos) <= 1:
+            for u in duenos_activos:
+                if u["id_usuario"] == id_usuario_afectado:
+                    return True
+        return False
 
     @con_errores
     def refrescar(self):
@@ -1739,12 +1816,47 @@ class PanelUsuarios(ttk.Frame):
     def guardar_cambios(self):
         if not self.usuario_elegido:
             raise ValueError("Elige un usuario de la tabla para editarlo.")
+            
         nombres = convertir(self.var_nombres.get(), "texto", "Nombre(s)", True, 50)
         apellido1 = convertir(self.var_apellido1.get(), "texto", "Apellido paterno", True, 50)
         apellido2 = convertir(self.var_apellido2.get(), "texto", "Apellido materno", False, 50)
+        username = convertir(self.var_username.get(), "texto", "Usuario", True, 50)
+        password = self.var_password.get().strip()
         rol = self.cb_rol.get()
+
+        if password and len(password) > 100:
+            raise ValueError("La nueva contraseña no puede pasar de 100 caracteres.")
+
+        if self.usuario_elegido["rol"] == "Dueño" and rol != "Dueño":
+            if self._comprobar_unico_dueno(self.usuario_elegido["id_usuario"]):
+                raise ValueError("No puedes quitarle el rol de Dueño a esta persona porque es el último administrador activo en el sistema.")
+
         if not Usuario.editar_usuario(self.usuario_elegido["id_usuario"], nombres, apellido1, apellido2, rol):
-            raise ErrorOperacion("No se pudo guardar los cambios.")
+            raise ErrorOperacion("No se pudieron guardar los cambios básicos.")
+
+        try:
+            conexion = ConexionDB().conectar()
+            cursor = conexion.cursor()
+            
+            cursor.execute("SELECT id_usuario FROM usuarios WHERE username = %s AND id_usuario != %s", 
+                           (username, self.usuario_elegido["id_usuario"]))
+            if cursor.fetchone():
+                raise ValueError("Ese nombre de usuario ya lo está ocupando otra persona.")
+            
+            if password:
+                cursor.execute("UPDATE usuarios SET username = %s, password = %s WHERE id_usuario = %s",
+                               (username, password, self.usuario_elegido["id_usuario"]))
+            else:
+                cursor.execute("UPDATE usuarios SET username = %s WHERE id_usuario = %s",
+                               (username, self.usuario_elegido["id_usuario"]))
+            conexion.commit()
+        except mysql.connector.Error as e:
+            raise ErrorOperacion(f"Ocurrió un error al actualizar las credenciales: {e}")
+        finally:
+            if 'conexion' in locals() and conexion.is_connected():
+                cursor.close()
+                conexion.close()
+                
         self.limpiar()
         self.refrescar()
 
@@ -1763,6 +1875,10 @@ class PanelUsuarios(ttk.Frame):
             return
         if int(id_usuario) == self.usuario_actual["id_usuario"]:
             raise ValueError("No puedes desactivar tu propia cuenta mientras tienes la sesión abierta.")
+            
+        if self._comprobar_unico_dueno(int(id_usuario)):
+            raise ValueError("No puedes desactivar a este usuario porque el sistema se quedaría sin administradores (Dueños) activos.")
+            
         if not messagebox.askyesno("Confirmar", "¿Desactivar esta cuenta? Ya no podrá iniciar sesión."):
             return
         Usuario.cambiar_estado(int(id_usuario), False)
@@ -1775,6 +1891,10 @@ class PanelUsuarios(ttk.Frame):
             return
         if int(id_usuario) == self.usuario_actual["id_usuario"]:
             raise ValueError("No puedes eliminar tu propia cuenta mientras tienes la sesión abierta.")
+            
+        if self._comprobar_unico_dueno(int(id_usuario)):
+            raise ValueError("No puedes eliminar a este usuario porque el sistema se quedaría sin administradores (Dueños) activos.")
+            
         if not messagebox.askyesno(
             "Confirmar",
             "Esto borra la cuenta por completo. Solo funciona si esa persona nunca ha cobrado un "
@@ -1807,8 +1927,19 @@ class Aplicacion(tk.Tk):
         self.configure(bg=FONDO)
         aplicar_estilos(self)
         
-        # MEJORA APLICADA: Confirmación de salida para no perder datos por accidente
         self.protocol("WM_DELETE_WINDOW", self.confirmar_salida)
+
+        # Carga del logo personalizado
+        try:
+            ruta_png = os.path.join(os.path.dirname(__file__), "logo.png")
+            ruta_ico = os.path.join(os.path.dirname(__file__), "logo.ico")
+            if os.path.exists(ruta_png):
+                self.imagen_logo = tk.PhotoImage(file=ruta_png)
+                self.iconphoto(True, self.imagen_logo)
+            elif os.path.exists(ruta_ico):
+                self.iconbitmap(ruta_ico)
+        except Exception:
+            pass
 
         encabezado = EncabezadoDegradado(
             self, "Barbería", f"Sesión: {nombre_completo(usuario_actual)} · {usuario_actual['rol']}",
@@ -1838,10 +1969,12 @@ class Aplicacion(tk.Tk):
             ("Servicios", PanelServicios(self.cuaderno)),
             ("Productos", PanelProductos(self.cuaderno)),
             ("Finanzas", PanelFinanzas(self.cuaderno)),
-            ("Respaldos", PanelRespaldos(self.cuaderno)),
         ]
+        
         if usuario_actual["rol"] == "Dueño":
+            paneles.append(("Respaldos", PanelRespaldos(self.cuaderno)))
             paneles.append(("Usuarios", PanelUsuarios(self.cuaderno, usuario_actual)))
+            
         for texto, panel in paneles:
             self.cuaderno.add(panel, text=texto)
 
@@ -1862,12 +1995,10 @@ class Aplicacion(tk.Tk):
 
     def cerrar_sesion(self):
         if messagebox.askyesno("Cerrar sesión", "¿Estás seguro que deseas cerrar la sesión actual?"):
-            self.destroy()  # Destruye la ventana principal de la app
-            main()          # Vuelve a llamar a la función que arranca el Login
+            self.destroy()
+            main()
 
 def main():
-    # Probamos la conexión antes de mostrar el login, para dar un mensaje claro
-    # si el servidor está apagado o si falta ejecutar inicializar_bd.py.
     try:
         conexion = ConexionDB().conectar()
     except mysql.connector.Error as e:

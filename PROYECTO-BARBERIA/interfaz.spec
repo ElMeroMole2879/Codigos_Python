@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['main.py'],
+    ['interfaz.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('logo.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='Sistema_Barberia',
+    name='interfaz',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
