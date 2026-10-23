@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['interfaz.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[('logo.ico', '.')],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='interfaz',
+    name='Morenos_Barber',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
