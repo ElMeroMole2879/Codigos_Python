@@ -49,6 +49,25 @@ class Cliente:
         return []
 
     @staticmethod
+    def obtener_clientes_inactivos():
+        # Trae la lista de clientes dados de baja para mostrarlos en el botón de la lupa
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor(dictionary=True) 
+                cursor.execute("SELECT id_cliente, nombres, primer_apellido FROM Clientes WHERE activo = False ORDER BY nombres ASC")
+                return cursor.fetchall()
+            except Exception as e:
+                print(f"Error al obtener clientes inactivos: {e}")
+                return []
+            finally:
+                cursor.close()
+                db.desconectar()
+        return []
+
+    @staticmethod
     def dar_de_baja(id_cliente):
         # Realiza una baja lógica del cliente (activo = False) en lugar de borrarlo.
         db = ConexionDB()

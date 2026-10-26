@@ -6,7 +6,7 @@ class Empleado:
     def registrar_empleado(nombres, primer_apellido, segundo_apellido, curp, telefono, correo, 
                            calle, num_exterior, num_interior, colonia, cp, puesto, 
                            salario_base=0.0, porcentaje_comision=0.0):
-        #Registra un nuevo empleado en el sistema.
+        # Registra un nuevo empleado en el sistema.
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -37,7 +37,7 @@ class Empleado:
 
     @staticmethod
     def dar_de_baja(id_empleado):
-        #Realiza una baja lógica del empleado (activo = False) en lugar de borrarlo.
+        # Realiza una baja lógica del empleado (activo = False) en lugar de borrarlo.
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -63,7 +63,7 @@ class Empleado:
 
     @staticmethod
     def obtener_empleados_activos():
-        #Trae solo a los empleados que siguen trabajando en la barbería.
+        # Trae solo a los empleados que siguen trabajando en la barbería.
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -82,12 +82,30 @@ class Empleado:
         return []
 
     @staticmethod
+    def obtener_empleados_inactivos():
+        # Trae la lista de empleados dados de baja para mostrarlos en el botón de la lupa
+        db = ConexionDB()
+        conexion = db.conectar()
+        
+        if conexion:
+            try:
+                cursor = conexion.cursor(dictionary=True) 
+                cursor.execute("SELECT id_empleado, nombres, primer_apellido FROM Empleados WHERE activo = False ORDER BY nombres ASC")
+                return cursor.fetchall()
+            except Exception as e:
+                print(f"Error al obtener empleados inactivos: {e}")
+                return []
+            finally:
+                cursor.close()
+                db.desconectar()
+        return []
+
+    @staticmethod
     def editar_empleado(id_empleado, nombres, primer_apellido, segundo_apellido, curp, telefono, correo, 
                         calle, num_exterior, num_interior, colonia, cp, puesto, 
                         salario_base, porcentaje_comision):
         
         # Corrige los datos de un empleado si hubo un error de captura.
-
         db = ConexionDB()
         conexion = db.conectar()
         

@@ -5,7 +5,7 @@ class Venta:
     
     @staticmethod
     def registrar_venta(id_cliente, id_usuario, metodo_pago, total, lista_servicios, lista_productos):
-        #Registra una venta completa (Ticket + Detalles + Descuento de Stock).
+        # Registra una venta completa (Ticket + Detalles + Descuento de Stock).
         # lista_servicios: lista de diccionarios [{'id_servicio': 1, 'id_empleado': 2, 'precio_cobrado': 250.00}]
         # lista_productos: lista de diccionarios [{'id_producto': 3, 'cantidad': 1, 'precio_cobrado': 150.00}]
         db = ConexionDB()
@@ -64,6 +64,13 @@ class Venta:
                         # Restar del inventario
                         cursor.execute(sql_descuento_stock, (prod['cantidad'], prod['id_producto']))
                 
+                # Si la venta tiene un cliente asignado, marcar su cita de hoy como Completada
+                if id_cliente is not None:
+                    cursor.execute(
+                        "UPDATE citas SET estado = 'Completada' WHERE id_cliente = %s AND fecha_cita = CURDATE() AND estado = 'Pendiente'", 
+                        (id_cliente,)
+                    )
+        
                 # Si todo salió bien, sellamos la transacción
                 conexion.commit()
                 print(f"Éxito: Venta #{id_venta} registrada correctamente por un total de ${total}.")
@@ -81,7 +88,7 @@ class Venta:
 
     @staticmethod
     def obtener_detalle_ticket(id_venta):
-        #Devuelve toda la info de un ticket (cliente, empleado, servicios y productos) para imprimirlo.
+        # Devuelve toda la info de un ticket (cliente, empleado, servicios y productos) para imprimirlo.
         db = ConexionDB()
         conexion = db.conectar()
         
@@ -97,7 +104,7 @@ class Venta:
                     LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
                     WHERE v.id_venta = %s
                 """, (id_venta,))
-                # NOTA: Cambié a LEFT JOIN porque si borraron al cliente o fue "al público en general", aún así debe mostrar el ticket.
+                # LEFT JOIN porque si borraron al cliente, aún así debe mostrar el ticket.
                 venta = cursor.fetchone()
                 
                 if not venta:

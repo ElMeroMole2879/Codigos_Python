@@ -1,18 +1,6 @@
 """
 Interfaz gráfica (Tkinter) del sistema de la barbería — adaptada al backend con
 login, empleados, inventario y finanzas.
-
-Archivos que deben estar junto a este, en la misma carpeta:
-   config.py, inicializar_bd.py, main.py, y la carpeta bd/ completa
-
-Antes de la primera vez:
-   python inicializar_bd.py
-   (OJO: ese script BORRA la base de datos si ya existía y la vuelve a crear vacía,
-   con el usuario admin/12345. Solo se ejecuta UNA vez, a mano. Esta interfaz nunca
-   lo llama sola, para no borrar tu información sin querer.)
-
-Requisito:  pip install mysql-connector-python
-Ejecutar:   python interfaz.py
 """
 import ctypes
 import os
@@ -77,11 +65,7 @@ METODOS_PAGO = ["Efectivo", "Tarjeta", "Transferencia"]
 
 
 class ErrorOperacion(Exception):
-    """
-    Se levanta cuando un método del backend regresa False/None sin dar más detalle.
-    El backend imprime la causa exacta en la terminal (con print), pero no la regresa
-    como texto, así que aquí solo podemos dar un mensaje general y apuntar a la terminal.
-    """
+    """Se levanta cuando un método del backend regresa False/None sin dar más detalle."""
 
 
 # ----------------------------------------------------------------------
@@ -89,11 +73,6 @@ class ErrorOperacion(Exception):
 # ----------------------------------------------------------------------
 
 class EntradaValidada(ttk.Entry):
-    """
-    Caja de texto personalizada que bloquea el teclado según el tipo de dato.
-    Tipos soportados: 'texto' (por defecto), 'entero' (solo números), 'decimal' (números y un punto),
-    'letras' (solo letras y espacios, sin números).
-    """
     def __init__(self, padre, tipo="texto", **kwargs):
         super().__init__(padre, **kwargs)
         if tipo == "entero":
@@ -110,36 +89,27 @@ class EntradaValidada(ttk.Entry):
         return P == "" or P.isdigit()
 
     def _validar_decimal(self, P):
-        if P == "":
-            return True
-        if P.count('.') > 1:
-            return False
+        if P == "": return True
+        if P.count('.') > 1: return False
         return P.replace('.', '').isdigit()
 
     def _validar_letras(self, P):
-        if P == "":
-            return True
-        # Acepta letras (incluyendo acentos, ñ) y espacios. Bloquea números y símbolos.
+        if P == "": return True
         return all(c.isalpha() or c.isspace() for c in P)
 
 
 def dinero(valor):
     return f"${Decimal(valor or 0):,.2f}"
 
-
 def hoy():
     return date.today().strftime("%Y-%m-%d")
-
 
 def con_errores(funcion):
     def envoltura(*args, **kwargs):
         try:
             return funcion(*args, **kwargs)
         except ErrorOperacion as e:
-            messagebox.showerror(
-                "No se pudo completar la operación",
-                f"{e}\n\nRevisa la terminal: ahí el backend imprime la causa exacta.",
-            )
+            messagebox.showerror("No se pudo completar la operación", f"{e}\n\nRevisa la terminal para ver detalles.")
         except ValueError as e:
             messagebox.showwarning("Revisa los datos", str(e))
         except mysql.connector.Error as e:
@@ -149,21 +119,17 @@ def con_errores(funcion):
     envoltura.__name__ = funcion.__name__
     return envoltura
 
-
 def convertir(valor, tipo, etiqueta, obligatorio=True, largo_maximo=None, defecto="0"):
     valor = str(valor).strip() if valor is not None else ""
     if not valor:
-        if obligatorio:
-            raise ValueError(f"El campo '{etiqueta}' es obligatorio.")
+        if obligatorio: raise ValueError(f"El campo '{etiqueta}' es obligatorio.")
         valor = defecto if tipo in ("decimal", "porcentaje", "entero") else ""
-        if not valor:
-            return None
+        if not valor: return None
 
     if tipo == "texto":
         if largo_maximo and len(valor) > largo_maximo:
             raise ValueError(f"'{etiqueta}' admite máximo {largo_maximo} caracteres.")
         return valor
-
     if tipo == "entero":
         if not (valor.isascii() and valor.isdigit()) or int(valor) > 2_000_000_000:
             raise ValueError(f"'{etiqueta}' debe ser un número entero (0 o mayor).")
@@ -172,7 +138,7 @@ def convertir(valor, tipo, etiqueta, obligatorio=True, largo_maximo=None, defect
     try:
         numero = Decimal(valor.replace(",", ""))
     except InvalidOperation:
-        raise ValueError(f"'{etiqueta}' debe ser un número, por ejemplo 150 o 150.50.")
+        raise ValueError(f"'{etiqueta}' debe ser un número válido.")
     if not numero.is_finite() or numero < 0 or numero >= 10 ** 8:
         raise ValueError(f"'{etiqueta}' debe ser un número positivo y razonable.")
     if tipo == "porcentaje" and numero > 100:
@@ -183,21 +149,18 @@ def convertir(valor, tipo, etiqueta, obligatorio=True, largo_maximo=None, defect
 def validar_fecha(texto, etiqueta="La fecha", obligatorio=True):
     texto = texto.strip()
     if not texto:
-        if obligatorio:
-            raise ValueError(f"{etiqueta} es obligatoria, formato AAAA-MM-DD.")
+        if obligatorio: raise ValueError(f"{etiqueta} es obligatoria, formato AAAA-MM-DD.")
         return None
     try:
         return datetime.strptime(texto, "%Y-%m-%d").date()
     except ValueError:
         raise ValueError(f"{etiqueta} debe tener el formato AAAA-MM-DD, por ejemplo {hoy()}.")
 
-
 def validar_hora(texto):
     try:
         return datetime.strptime(texto.strip(), "%H:%M").time()
     except ValueError:
         raise ValueError("La hora debe tener el formato HH:MM, por ejemplo 15:30.")
-
 
 def formatear_hora(valor):
     if isinstance(valor, timedelta):
@@ -207,13 +170,11 @@ def formatear_hora(valor):
         return f"{h:02d}:{m:02d}:{s:02d}"
     return str(valor)
 
-
 def nombre_completo(fila, prefijo=""):
     partes = [fila.get(f"{prefijo}nombres") or fila.get("nombres"),
               fila.get(f"{prefijo}primer_apellido") or fila.get("primer_apellido"),
               fila.get(f"{prefijo}segundo_apellido") or fila.get("segundo_apellido")]
     return " ".join(p for p in partes if p)
-
 
 def crear_tabla(padre, columnas, altura=8):
     contenedor = ttk.Frame(padre)
@@ -250,7 +211,6 @@ def llenar_tabla(tabla, filas, claves, formatos=None, etiqueta=None):
         tabla.insert("", "end", iid=iid, values=valores, tags=etiquetas)
         por_id[iid] = fila
     return por_id
-
 
 def seleccionado(tabla, mensaje):
     seleccion = tabla.selection()
@@ -323,8 +283,7 @@ class EncabezadoDegradado(tk.Canvas):
     def _dibujar(self, _evento=None):
         self.delete("all")
         ancho = self.winfo_width()
-        if ancho <= 1:
-            return
+        if ancho <= 1: return
         for x in range(ancho):
             self.create_line(x, 0, x, self.alto, fill=interpolar_color(self.color_izq, self.color_der, x / max(ancho - 1, 1)))
         self.create_text(22, self.alto / 2, text=self.titulo, font=FUENTE_TITULO, fill="white", anchor="w")
@@ -388,19 +347,15 @@ def aplicar_estilos(raiz):
     estilo.map("TCombobox", fieldbackground=[("readonly", SUPERFICIE)],
                selectbackground=[("readonly", SUPERFICIE)], selectforeground=[("readonly", TEXTO)])
     estilo.configure("TSpinbox", fieldbackground=SUPERFICIE, padding=4)
-
     estilo.configure("TButton", padding=(12, 6), background="#dfe5ee", foreground=TINTA, borderwidth=1)
     estilo.map("TButton", background=[("active", "#cdd6e3")])
-
     estilo.configure("TNotebook", background=FONDO, borderwidth=0)
     estilo.configure("TNotebook.Tab", padding=(16, 8), background="#dfe5ee", foreground=TEXTO_SUAVE, font=FUENTE_NEGRITA)
     estilo.map("TNotebook.Tab", background=[("selected", FONDO)], foreground=[("selected", ROJO)])
-
     estilo.configure("Treeview", rowheight=26, background=SUPERFICIE, fieldbackground=SUPERFICIE, bordercolor=LINEA)
     estilo.configure("Treeview.Heading", background=TINTA, foreground="white", font=FUENTE_NEGRITA, padding=(4, 6), relief="flat")
     estilo.map("Treeview.Heading", background=[("active", AZUL_POSTE)])
     estilo.map("Treeview", background=[("selected", AZUL_POSTE)], foreground=[("selected", "white")])
-
     estilo.configure("Total.TLabel", font=FUENTE_TOTAL, foreground=TINTA)
     estilo.configure("Encabezado.TLabel", font=FUENTE_SUBTITULO, foreground=TINTA, background=FONDO)
 
@@ -418,13 +373,16 @@ class VentanaLogin(tk.Tk):
         aplicar_estilos(self)
         self.usuario_autenticado = None
 
-        # Carga del logo personalizado
         try:
+            ruta_png = os.path.join(os.path.dirname(__file__), "logo.png")
             ruta_ico = os.path.join(os.path.dirname(__file__), "logo.ico")
-            if os.path.exists(ruta_ico):
+            if os.path.exists(ruta_png):
+                self.imagen_logo = tk.PhotoImage(file=ruta_png)
+                self.iconphoto(True, self.imagen_logo)
+            elif os.path.exists(ruta_ico):
                 self.iconbitmap(ruta_ico)
         except Exception:
-            pass  # Si hay error cargando la imagen, simplemente se usa el predeterminado de Tkinter
+            pass 
 
         tk.Label(self, text="Barbería", font=FUENTE_TITULO, bg=FONDO, fg=TINTA).pack(pady=(34, 0))
         BandaBarbero(self).pack(fill="x", pady=(10, 24), padx=40)
@@ -457,10 +415,7 @@ class VentanaLogin(tk.Tk):
         try:
             resultado = Usuario.validar_login(usuario, password)
         except mysql.connector.Error as e:
-            messagebox.showerror(
-                "No se pudo iniciar",
-                f"No se pudo conectar con MySQL.\nRevisa que el servidor esté encendido y que config.py sea correcto.\n\n{e}",
-            )
+            messagebox.showerror("No se pudo iniciar", f"No se pudo conectar con MySQL.\n\n{e}")
             return
         if resultado is None:
             messagebox.showwarning("Acceso denegado", "Usuario o contraseña incorrectos.")
@@ -558,22 +513,21 @@ class PanelCitas(ttk.Frame):
 
     @con_errores
     def agendar(self):
-        fecha = validar_fecha(self.var_fecha.get())
-        hora = validar_hora(self.var_hora.get())
+        fecha = self.var_fecha.get()
+        hora = self.var_hora.get()
+        
         id_cliente, id_empleado, id_servicio = self.cb_cliente.valor(), self.cb_empleado.valor(), self.cb_servicio.valor()
         if None in (id_cliente, id_empleado, id_servicio):
             raise ValueError("Elige el cliente, el barbero y el servicio de la cita.")
 
-        hora_texto = hora.strftime("%H:%M:%S")
-        if not Cita.agendar_cita(id_cliente, id_empleado, id_servicio, fecha.isoformat(), hora_texto):
-            raise ErrorOperacion("No se pudo agendar la cita (puede que ese barbero ya tenga otra cita a esa hora).")
+        if not Cita.agendar_cita(id_cliente, id_empleado, id_servicio, fecha, hora):
+            raise ErrorOperacion("No se pudo agendar la cita (revisa los datos o si el horario está ocupado).")
         self.refrescar()
 
     @con_errores
     def aplicar_estado(self):
         id_cita = seleccionado(self.tabla, "Elige una cita de la tabla y el estado que quieres aplicarle.")
-        if id_cita is None:
-            return
+        if id_cita is None: return
         if not Cita.actualizar_estado_cita(int(id_cita), self.cb_estado.get()):
             raise ErrorOperacion("No se pudo cambiar el estado de la cita.")
         self.refrescar()
@@ -581,12 +535,12 @@ class PanelCitas(ttk.Frame):
     @con_errores
     def eliminar_por_error(self):
         id_cita = seleccionado(self.tabla, "Elige una cita de la tabla para eliminarla.")
-        if id_cita is None:
-            return
+        if id_cita is None: return
+        
         if not messagebox.askyesno(
-            "Confirmar", "Esto borra la cita por completo (no es cancelarla, es borrar el registro).\n¿Continuar?",
-        ):
-            return
+            "Confirmar", "Esto borra la cita por completo.\n¿Continuar?",
+        ): return
+        
         if not Cita.eliminar_cita_por_error(int(id_cita)):
             raise ErrorOperacion("No se pudo eliminar la cita.")
         self.refrescar()
@@ -597,7 +551,7 @@ class PanelCitas(ttk.Frame):
 # ----------------------------------------------------------------------
 class PanelVentas(ttk.Frame):
     def __init__(self, padre, usuario_actual):
-        super().__init__(padre, padding=14)
+        super().__init__(padre, padding=10)
         self.id_usuario = usuario_actual["id_usuario"]
         self.carrito = []
         self.total = Decimal("0")
@@ -609,87 +563,94 @@ class PanelVentas(ttk.Frame):
         self.var_stock = tk.StringVar()
         self.var_total = tk.StringVar(value=f"Total  {dinero(0)}")
 
+        # DISEÑO COMPACTO Y OPTIMIZADO PARA QUE TODO SEA VISIBLE SIN CORTES
         izquierda = ttk.Frame(self)
-        izquierda.pack(side="left", fill="y", padx=(0, 16))
+        izquierda.pack(side="left", fill="y", padx=(0, 10))
         derecha = ttk.Frame(self)
         derecha.pack(side="left", fill="both", expand=True)
 
-        caja = ttk.LabelFrame(izquierda, text=" Venta ", padding=10)
-        caja.pack(fill="x")
-        ttk.Label(caja, text="Cliente").pack(anchor="w")
-        self.cb_cliente = ComboConIds(caja, width=34)
+        caja_cliente = ttk.LabelFrame(izquierda, text=" Venta ", padding=6)
+        caja_cliente.pack(fill="x", pady=(0, 4))
+        ttk.Label(caja_cliente, text="Cliente").pack(anchor="w")
+        self.cb_cliente = ComboConIds(caja_cliente, width=32)
         self.cb_cliente.pack(fill="x")
-        ttk.Label(caja, text="Método de pago").pack(anchor="w", pady=(8, 0))
-        self.cb_pago = ttk.Combobox(caja, values=METODOS_PAGO, state="readonly", width=34)
+        ttk.Label(caja_cliente, text="Método de pago").pack(anchor="w", pady=(2, 0))
+        self.cb_pago = ttk.Combobox(caja_cliente, values=METODOS_PAGO, state="readonly", width=32)
         self.cb_pago.set(METODOS_PAGO[0])
         self.cb_pago.pack(fill="x")
 
-        caja = ttk.LabelFrame(izquierda, text=" Agregar servicio ", padding=10)
-        caja.pack(fill="x", pady=12)
-        ttk.Label(caja, text="Servicio").pack(anchor="w")
-        self.cb_servicio = ComboConIds(caja, width=34)
+        caja_serv = ttk.LabelFrame(izquierda, text=" Agregar servicio ", padding=6)
+        caja_serv.pack(fill="x", pady=(0, 4))
+        ttk.Label(caja_serv, text="Servicio").pack(anchor="w")
+        self.cb_servicio = ComboConIds(caja_serv, width=32)
         self.cb_servicio.pack(fill="x")
         self.cb_servicio.bind("<<ComboboxSelected>>", self.al_elegir_servicio)
-        ttk.Label(caja, text="Barbero que lo realizó").pack(anchor="w", pady=(8, 0))
-        self.cb_empleado = ComboConIds(caja, width=34)
+        ttk.Label(caja_serv, text="Barbero que lo realizó").pack(anchor="w", pady=(2, 0))
+        self.cb_empleado = ComboConIds(caja_serv, width=32)
         self.cb_empleado.pack(fill="x")
-        ttk.Label(caja, text="Precio a cobrar").pack(anchor="w", pady=(8, 0))
-        EntradaValidada(caja, tipo="decimal", textvariable=self.var_precio_servicio).pack(fill="x")
-        BotonDegradado(caja, text="Agregar servicio al ticket", command=self.agregar_servicio).pack(fill="x", pady=(10, 0))
+        ttk.Label(caja_serv, text="Precio (fijo)").pack(anchor="w", pady=(2, 0))
+        self.ent_precio_serv = EntradaValidada(caja_serv, tipo="decimal", textvariable=self.var_precio_servicio, state="readonly")
+        self.ent_precio_serv.pack(fill="x")
+        BotonDegradado(caja_serv, text="Agregar servicio al ticket", command=self.agregar_servicio, alto=28).pack(fill="x", pady=(4, 0))
 
-        caja = ttk.LabelFrame(izquierda, text=" Agregar producto ", padding=10)
-        caja.pack(fill="x")
-        ttk.Label(caja, text="Producto").pack(anchor="w")
-        self.cb_producto = ComboConIds(caja, width=34)
+        caja_prod = ttk.LabelFrame(izquierda, text=" Agregar producto ", padding=6)
+        caja_prod.pack(fill="x")
+        ttk.Label(caja_prod, text="Producto").pack(anchor="w")
+        self.cb_producto = ComboConIds(caja_prod, width=32)
         self.cb_producto.pack(fill="x")
         self.cb_producto.bind("<<ComboboxSelected>>", self.al_elegir_producto)
-        fila = ttk.Frame(caja)
-        fila.pack(fill="x", pady=(8, 0))
-        ttk.Label(fila, text="Cantidad").pack(side="left")
-        ttk.Spinbox(fila, from_=1, to=999, textvariable=self.var_cantidad, width=6).pack(side="left", padx=(6, 12))
-        ttk.Label(fila, textvariable=self.var_stock, foreground=TEXTO_SUAVE).pack(side="left")
-        ttk.Label(caja, text="Precio unitario").pack(anchor="w", pady=(8, 0))
-        EntradaValidada(caja, tipo="decimal", textvariable=self.var_precio_producto).pack(fill="x")
-        BotonDegradado(caja, text="Agregar producto al ticket", command=self.agregar_producto).pack(fill="x", pady=(10, 0))
+        fila_prod = ttk.Frame(caja_prod)
+        fila_prod.pack(fill="x", pady=(2, 0))
+        ttk.Label(fila_prod, text="Cant.").pack(side="left")
+        ttk.Spinbox(fila_prod, from_=1, to=999, textvariable=self.var_cantidad, width=5).pack(side="left", padx=(4, 8))
+        ttk.Label(fila_prod, textvariable=self.var_stock, foreground=TEXTO_SUAVE).pack(side="left")
+        ttk.Label(caja_prod, text="Precio unitario (fijo)").pack(anchor="w", pady=(2, 0))
+        self.ent_precio_prod = EntradaValidada(caja_prod, tipo="decimal", textvariable=self.var_precio_producto, state="readonly")
+        self.ent_precio_prod.pack(fill="x")
+        BotonDegradado(caja_prod, text="Agregar producto al ticket", command=self.agregar_producto, alto=28).pack(fill="x", pady=(4, 0))
 
-        ttk.Label(derecha, text="Ticket", style="Encabezado.TLabel").pack(anchor="w")
+        # Derecha: Ticket y Búsqueda de tickets
+        ttk.Label(derecha, text="Ticket actual", style="Encabezado.TLabel").pack(anchor="w")
         contenedor, self.tabla = crear_tabla(derecha, [
-            ("tipo", "Tipo", 80, "w"), ("concepto", "Concepto", 220, "w"), ("detalle", "Detalle", 150, "w"),
-            ("cantidad", "Cant.", 60, "e"), ("precio", "Precio", 100, "e"), ("subtotal", "Subtotal", 110, "e"),
-        ], altura=13)
-        contenedor.pack(fill="both", expand=True, pady=(6, 10))
+            ("tipo", "Tipo", 75, "w"), ("concepto", "Concepto", 180, "w"), ("detalle", "Detalle", 130, "w"),
+            ("cantidad", "Cant.", 50, "e"), ("precio", "Precio", 90, "e"), ("subtotal", "Subtotal", 90, "e"),
+        ], altura=8)
+        contenedor.pack(fill="both", expand=True, pady=(4, 6))
 
         pie = ttk.Frame(derecha)
-        pie.pack(fill="x")
+        pie.pack(fill="x", pady=(0, 6))
         ttk.Label(pie, textvariable=self.var_total, style="Total.TLabel").pack(side="left")
-        BotonDegradado(pie, text="Cobrar y registrar venta", command=self.cobrar).pack(side="right")
-        ttk.Button(pie, text="Vaciar", command=self.vaciar).pack(side="right", padx=6)
+        BotonDegradado(pie, text="Cobrar y registrar venta", command=self.cobrar, alto=32).pack(side="right")
+        ttk.Button(pie, text="Vaciar", command=self.vaciar).pack(side="right", padx=4)
         ttk.Button(pie, text="Quitar renglón", command=self.quitar).pack(side="right")
 
-        buscar = ttk.LabelFrame(derecha, text=" Buscar / cancelar una venta por folio ", padding=10)
-        buscar.pack(fill="x", pady=(14, 0))
-        self.var_folio = tk.StringVar()
-        self.var_resultado_folio = tk.StringVar(value="Escribe el número de folio (#) y presiona Buscar.")
-        fila = ttk.Frame(buscar)
-        fila.pack(fill="x")
-        ttk.Label(fila, text="Folio #").pack(side="left")
-        EntradaValidada(fila, tipo="entero", textvariable=self.var_folio, width=10).pack(side="left", padx=(6, 10))
-        ttk.Button(fila, text="Buscar", command=self.buscar_folio).pack(side="left")
-        ttk.Button(fila, text="Cancelar esta venta", command=self.cancelar_folio).pack(side="left", padx=6)
-        ttk.Label(buscar, textvariable=self.var_resultado_folio, wraplength=560, justify="left", foreground=TEXTO_SUAVE).pack(anchor="w", pady=(8, 0))
+        # Búsqueda de tickets por folio, nombre de cliente o fecha
+        buscar_frame = ttk.LabelFrame(derecha, text=" Buscar tickets (por folio, nombre o fecha AAAA-MM-DD) ", padding=8)
+        buscar_frame.pack(fill="x")
+        
+        fila_busq = ttk.Frame(buscar_frame)
+        fila_busq.pack(fill="x", pady=(0, 4))
+        self.var_busqueda_venta = tk.StringVar()
+        ttk.Label(fila_busq, text="Buscar:").pack(side="left")
+        ttk.Entry(fila_busq, textvariable=self.var_busqueda_venta, width=26).pack(side="left", padx=6)
+        BotonDegradado(fila_busq, text="Buscar", command=self.buscar_ventas, alto=28, relleno_horizontal=12).pack(side="left", padx=(0, 4))
+        BotonDegradado(fila_busq, text="Ver detalle", command=self.ver_detalle_venta, alto=28, relleno_horizontal=12).pack(side="left", padx=(0, 4))
+        BotonDegradado(fila_busq, text="Cancelar venta", command=self.cancelar_venta_seleccionada, color_izq=ROJO_OSCURO, color_der=ROJO, alto=28, relleno_horizontal=12).pack(side="left")
+
+        contenedor_busq, self.tabla_ventas_busqueda = crear_tabla(buscar_frame, [
+            ("id", "Folio", 50, "w"), ("fecha", "Fecha y hora", 140, "w"), ("cliente", "Cliente", 180, "w"), ("total", "Total", 85, "e"), ("pago", "Pago", 80, "w")
+        ], altura=4)
+        contenedor_busq.pack(fill="x", pady=(4, 0))
 
     @con_errores
     def refrescar(self):
         clientes = [(None, "Mostrador (sin cliente)")] + [(f["id_cliente"], nombre_completo(f)) for f in Cliente.obtener_todos_los_clientes()]
         self.cb_cliente.cargar(clientes)
-        if not self.cb_cliente.get():
-            self.cb_cliente.current(0)
-
+        if not self.cb_cliente.get(): self.cb_cliente.current(0)
         servicios = Servicio.obtener_todos_los_servicios()
         self.precios_servicios = {f["id_servicio"]: f["precio_actual"] for f in servicios}
         self.cb_servicio.cargar([(f["id_servicio"], f["nombre_servicio"]) for f in servicios])
         self.cb_empleado.cargar([(f["id_empleado"], nombre_completo(f)) for f in Empleado.obtener_empleados_activos()])
-
         productos = Producto.obtener_todos_los_productos()
         self.datos_productos = {f["id_producto"]: f for f in productos}
         self.cb_producto.cargar([(f["id_producto"], f["nombre_producto"]) for f in productos])
@@ -697,12 +658,16 @@ class PanelVentas(ttk.Frame):
     def al_elegir_servicio(self, _evento=None):
         precio = self.precios_servicios.get(self.cb_servicio.valor())
         if precio is not None:
+            self.ent_precio_serv.configure(state="normal")
             self.var_precio_servicio.set(str(precio))
+            self.ent_precio_serv.configure(state="readonly")
 
     def al_elegir_producto(self, _evento=None):
         datos = self.datos_productos.get(self.cb_producto.valor())
         if datos:
+            self.ent_precio_prod.configure(state="normal")
             self.var_precio_producto.set(str(datos["precio_venta_actual"]))
+            self.ent_precio_prod.configure(state="readonly")
             self.var_stock.set(f"En existencia: {datos['stock_total']}")
 
     @con_errores
@@ -720,18 +685,14 @@ class PanelVentas(ttk.Frame):
     @con_errores
     def agregar_producto(self):
         id_producto = self.cb_producto.valor()
-        if id_producto is None:
-            raise ValueError("Elige un producto.")
+        if id_producto is None: raise ValueError("Elige un producto.")
         cantidad = convertir(self.var_cantidad.get(), "entero", "Cantidad")
-        if cantidad < 1:
-            raise ValueError("La cantidad debe ser de al menos 1.")
+        if cantidad < 1: raise ValueError("La cantidad debe ser de al menos 1.")
         precio = convertir(self.var_precio_producto.get(), "decimal", "Precio unitario")
-
         stock = self.datos_productos[id_producto]["stock_total"]
         en_ticket = sum(x["cantidad"] for x in self.carrito if x["tipo"] == "Producto" and x["id"] == id_producto)
         if en_ticket + cantidad > stock:
             raise ValueError(f"No hay suficiente inventario: quedan {stock} y ya tienes {en_ticket} en el ticket.")
-
         self.carrito.append({
             "tipo": "Producto", "id": id_producto, "concepto": self.cb_producto.get(),
             "id_empleado": None, "detalle": self.datos_productos[id_producto]["marca"], "cantidad": cantidad, "precio": precio,
@@ -765,8 +726,7 @@ class PanelVentas(ttk.Frame):
     def cobrar(self):
         if not self.carrito:
             raise ValueError("El ticket está vacío. Agrega al menos un servicio o producto.")
-        if not messagebox.askyesno("Cobrar", f"El total es {dinero(self.total)}.\n¿Registrar la venta?"):
-            return
+        if not messagebox.askyesno("Cobrar", f"El total es {dinero(self.total)}.\n¿Registrar la venta?"): return
         lista_servicios = [
             {"id_servicio": x["id"], "id_empleado": x["id_empleado"], "precio_cobrado": x["precio"]}
             for x in self.carrito if x["tipo"] == "Servicio"
@@ -786,13 +746,60 @@ class PanelVentas(ttk.Frame):
         self.refrescar()
 
     @con_errores
-    def buscar_folio(self):
-        texto = self.var_folio.get().strip()
-        if not texto.isdigit():
-            raise ValueError("Escribe el número de folio de la venta (solo dígitos).")
-        detalle = Venta.obtener_detalle_ticket(int(texto))
+    def buscar_ventas(self):
+        termino = self.var_busqueda_venta.get().strip()
+        db = ConexionDB()
+        conexion = db.conectar()
+        filas = []
+        if conexion:
+            try:
+                cursor = conexion.cursor(dictionary=True)
+                sql = """
+                    SELECT v.id_venta, v.fecha_hora, v.metodo_pago, v.total,
+                           c.nombres, c.primer_apellido, c.segundo_apellido
+                    FROM Ventas v
+                    LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
+                    WHERE v.id_venta LIKE %s 
+                       OR v.fecha_hora LIKE %s 
+                       OR c.nombres LIKE %s 
+                       OR c.primer_apellido LIKE %s 
+                       OR c.segundo_apellido LIKE %s
+                    ORDER BY v.id_venta DESC
+                    LIMIT 50
+                """
+                like_term = f"%{termino}%"
+                cursor.execute(sql, (like_term, like_term, like_term, like_term, like_term))
+                resultados = cursor.fetchall()
+                for r in resultados:
+                    cliente_nom = f"{r.get('nombres', '')} {r.get('primer_apellido', '')}".strip()
+                    if not cliente_nom:
+                        cliente_nom = "Mostrador (sin cliente)"
+                    filas.append({
+                        "id_venta": r["id_venta"],
+                        "fecha_hora": str(r["fecha_hora"]),
+                        "cliente": cliente_nom,
+                        "total": r["total"],
+                        "pago": r["metodo_pago"]
+                    })
+            except Exception as e:
+                print(f"Error al buscar ventas: {e}")
+            finally:
+                cursor.close()
+                db.desconectar()
+        
+        self.ventas_buscadas = llenar_tabla(
+            self.tabla_ventas_busqueda, filas,
+            claves=["id_venta", "fecha_hora", "cliente", "total", "pago"],
+            formatos=[None, None, None, dinero, None]
+        )
+
+    @con_errores
+    def ver_detalle_venta(self):
+        id_venta = seleccionado(self.tabla_ventas_busqueda, "Elige una venta de la tabla de búsqueda.")
+        if not id_venta: return
+        detalle = Venta.obtener_detalle_ticket(int(id_venta))
         if not detalle:
-            self.var_resultado_folio.set(f"No se encontró ninguna venta con el folio #{texto}.")
+            messagebox.showinfo("Detalle", "No se encontró el detalle de la venta.")
             return
         ticket = detalle["ticket"]
         lineas = [f"Venta #{ticket['id_venta']} · {ticket['fecha_hora']} · {ticket['metodo_pago']} · Total: {dinero(ticket['total'])}"]
@@ -802,23 +809,21 @@ class PanelVentas(ttk.Frame):
             lineas.append(f"  Servicio: {s['nombre_servicio']} — {dinero(s['precio_cobrado'])} (barbero: {s['barbero']})")
         for p in detalle["productos"]:
             lineas.append(f"  Producto: {p['nombre_producto']} x{p['cantidad']} — {dinero(p['precio_cobrado'])} c/u")
-        self.var_resultado_folio.set("\n".join(lineas))
+        messagebox.showinfo(f"Detalle de Venta #{id_venta}", "\n".join(lineas))
 
     @con_errores
-    def cancelar_folio(self):
-        texto = self.var_folio.get().strip()
-        if not texto.isdigit():
-            raise ValueError("Escribe el número de folio de la venta que quieres cancelar.")
+    def cancelar_venta_seleccionada(self):
+        id_venta = seleccionado(self.tabla_ventas_busqueda, "Elige una venta de la tabla de búsqueda para cancelarla.")
+        if not id_venta: return
         if not messagebox.askyesno(
             "Confirmar cancelación",
-            f"Esto borra la venta #{texto} por completo: regresa los productos al inventario y "
+            f"Esto borra la venta #{id_venta} por completo: regresa los productos al inventario y "
             "quita la comisión que generó. No se puede deshacer. ¿Continuar?",
-        ):
-            return
-        if not Venta.cancelar_venta_por_error(int(texto)):
-            raise ErrorOperacion("No se pudo cancelar esa venta (revisa que el folio exista).")
-        self.var_resultado_folio.set(f"Venta #{texto} cancelada. Inventario restaurado.")
-        self.var_folio.set("")
+        ): return
+        if not Venta.cancelar_venta_por_error(int(id_venta)):
+            raise ErrorOperacion("No se pudo cancelar esa venta.")
+        messagebox.showinfo("Éxito", f"Venta #{id_venta} cancelada. Inventario restaurado.")
+        self.buscar_ventas()
         self.refrescar()
 
 
@@ -846,13 +851,9 @@ class PanelClientes(ttk.Frame):
         ]
         for i, (texto, var) in enumerate(campos):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 4))
-            
             tipo_val = "texto"
-            if "Teléfono" in texto:
-                tipo_val = "entero"
-            elif "Nombre" in texto or "Apellido" in texto:
-                tipo_val = "letras"
-                
+            if "Teléfono" in texto: tipo_val = "entero"
+            elif "Nombre" in texto or "Apellido" in texto: tipo_val = "letras"
             EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=18).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
 
         ttk.Label(formulario, text="Corte preferido").grid(row=0, column=4, sticky="w", padx=(0, 4))
@@ -863,15 +864,16 @@ class PanelClientes(ttk.Frame):
         self.cb_corte.grid(row=1, column=4, sticky="w", padx=(0, 16), pady=(0, 10))
 
         botones = ttk.Frame(formulario)
-        botones.grid(row=2, column=0, columnspan=5, sticky="w")
+        botones.grid(row=2, column=0, columnspan=6, sticky="w")
         BotonDegradado(botones, text="Registrar cliente", command=self.registrar).pack(side="left")
-        ttk.Button(botones, text="Guardar cambios del elegido", command=self.guardar_cambios).pack(side="left", padx=6)
-        ttk.Button(botones, text="Dar de baja al elegido", command=self.dar_de_baja).pack(side="left")
-        ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left", padx=6)
+        ttk.Button(botones, text="Guardar cambios", command=self.guardar_cambios).pack(side="left", padx=6)
+        ttk.Button(botones, text="Dar de baja", command=self.dar_de_baja).pack(side="left")
+        ttk.Button(botones, text="Eliminar", command=self.eliminar_por_error).pack(side="left", padx=6)
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left")
-        ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(20, 4))
-        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=6).pack(side="left")
+        ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(10, 4))
+        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=5).pack(side="left")
         ttk.Button(botones, text="Reactivar", command=self.reactivar).pack(side="left", padx=6)
+        ttk.Button(botones, text="🔎 Ver inactivos", command=self.ver_inactivos).pack(side="left", padx=(0, 6))
 
         barra = ttk.Frame(self)
         barra.pack(fill="x", pady=(14, 6))
@@ -883,7 +885,7 @@ class PanelClientes(ttk.Frame):
 
         contenedor, self.tabla = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("nombre", "Nombre", 260, "w"), ("telefono", "Teléfono", 130, "w"), ("corte", "Corte preferido", 220, "w"),
-        ], altura=6)
+        ], altura=4)
         contenedor.pack(fill="x")
         self.tabla.bind("<<TreeviewSelect>>", self.al_seleccionar)
 
@@ -906,26 +908,26 @@ class PanelClientes(ttk.Frame):
         self.subpestanas.add(pestana_citas, text="Citas pasadas")
 
         pestana_notas = ttk.Frame(self.subpestanas, padding=8)
+        captura = ttk.Frame(pestana_notas)
+        captura.pack(side="bottom", fill="x", pady=(8, 0))
+        
         contenedor, self.tabla_notas = crear_tabla(pestana_notas, [
             ("id", "ID", 0, "w"), ("fecha", "Fecha", 100, "w"), ("nota", "Nota", 360, "w"), ("barbero", "Anotó", 150, "w"),
         ], altura=4)
-        contenedor.pack(fill="both", expand=True)
+        contenedor.pack(side="top", fill="both", expand=True)
+        
         self.tabla_notas.bind("<<TreeviewSelect>>", self.al_seleccionar_nota)
-        captura = ttk.Frame(pestana_notas)
-        captura.pack(fill="x", pady=(8, 0))
+        
         self.notas_cargadas = {}
         self.var_texto_nota = tk.StringVar()
         self.cb_empleado_nota = ComboConIds(captura, width=22)
         ttk.Label(captura, text="Barbero que anota").pack(side="left")
         self.cb_empleado_nota.pack(side="left", padx=(6, 14))
-        BotonDegradado(captura, text="Agregar nota nueva", command=self.agregar_nota).pack(side="right")
+        BotonDegradado(captura, text="Agregar nota", command=self.agregar_nota).pack(side="right")
         ttk.Button(captura, text="Guardar edición", command=self.editar_nota).pack(side="right", padx=6)
         ttk.Button(captura, text="Eliminar nota", command=self.eliminar_nota).pack(side="right")
         ttk.Entry(captura, textvariable=self.var_texto_nota).pack(side="left", padx=(6, 0), fill="x", expand=True)
-        ttk.Label(
-            pestana_notas, foreground=TEXTO_SUAVE,
-            text='Elige una nota de la tabla para editarla o eliminarla; escribe texto nuevo (sin elegir ninguna) y presiona "Agregar nota nueva" para crear una.',
-        ).pack(anchor="w", pady=(6, 0))
+        
         self.subpestanas.add(pestana_notas, text="Notas")
 
     @con_errores
@@ -937,16 +939,13 @@ class PanelClientes(ttk.Frame):
     def pintar_tabla(self):
         texto = self.var_busqueda.get().strip().lower()
         filas = self.clientes_cargados
-        for f in filas:
-            f["nombre"] = nombre_completo(f)
-        if texto:
-            filas = [f for f in filas if texto in f["nombre"].lower()]
+        for f in filas: f["nombre"] = nombre_completo(f)
+        if texto: filas = [f for f in filas if texto in f["nombre"].lower()]
         self.filas = llenar_tabla(self.tabla, filas, claves=["id_cliente", "nombre", "telefono", "corte_preferido"])
 
     def al_seleccionar(self, _evento=None):
         seleccion = self.tabla.selection()
-        if not seleccion:
-            return
+        if not seleccion: return
         fila = self.filas[seleccion[0]]
         self.cliente_actual = fila
         self.var_nombres.set(fila.get("nombres", ""))
@@ -980,8 +979,7 @@ class PanelClientes(ttk.Frame):
 
     @con_errores
     def guardar_cambios(self):
-        if not self.cliente_actual:
-            raise ValueError("Elige un cliente de la tabla para editarlo.")
+        if not self.cliente_actual: raise ValueError("Elige un cliente de la tabla para editarlo.")
         nombres = convertir(self.var_nombres.get(), "texto", "Nombre(s)", True, 50)
         apellido1 = convertir(self.var_apellido1.get(), "texto", "Apellido paterno", True, 50)
         apellido2 = convertir(self.var_apellido2.get(), "texto", "Apellido materno", False, 50)
@@ -994,27 +992,19 @@ class PanelClientes(ttk.Frame):
 
     @con_errores
     def eliminar_por_error(self):
-        id_cliente = seleccionado(self.tabla, "Elige un cliente de la tabla para eliminarlo.")
-        if id_cliente is None:
-            return
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra al cliente por completo (no es darlo de baja). Solo funciona si nunca ha "
-            "tenido una venta registrada. ¿Continuar?",
-        ):
-            return
+        id_cliente = seleccionado(self.tabla, "Elige un cliente para eliminarlo.")
+        if id_cliente is None: return
+        if not messagebox.askyesno("Confirmar", "Esto borra al cliente por completo. ¿Continuar?"): return
         if not Cliente.eliminar_cliente_por_error(int(id_cliente)):
-            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene ventas registradas; usa \"Dar de baja\" en su lugar).")
+            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene ventas; usa Dar de baja).")
         self.limpiar()
         self.refrescar()
 
     @con_errores
     def dar_de_baja(self):
-        id_cliente = seleccionado(self.tabla, "Elige un cliente de la tabla para darlo de baja.")
-        if id_cliente is None:
-            return
-        if not messagebox.askyesno("Confirmar", "¿Dar de baja al cliente seleccionado? Dejará de aparecer en la lista."):
-            return
+        id_cliente = seleccionado(self.tabla, "Elige un cliente para darlo de baja.")
+        if id_cliente is None: return
+        if not messagebox.askyesno("Confirmar", "¿Dar de baja al cliente seleccionado?"): return
         Cliente.dar_de_baja(int(id_cliente))
         self.limpiar()
         self.refrescar()
@@ -1022,24 +1012,30 @@ class PanelClientes(ttk.Frame):
     @con_errores
     def reactivar(self):
         texto = self.var_reactivar.get().strip()
-        if not texto.isdigit():
-            raise ValueError("Escribe el ID numérico del cliente que quieres reactivar.")
+        if not texto.isdigit(): raise ValueError("Escribe el ID numérico del cliente a reactivar.")
         Cliente.reactivar_cliente(int(texto))
         self.var_reactivar.set("")
         self.refrescar()
 
+    def ver_inactivos(self):
+        inactivos = Cliente.obtener_clientes_inactivos()
+        if not inactivos:
+            messagebox.showinfo("Inactivos", "No hay clientes dados de baja en el sistema.")
+            return
+        texto = "Usa el ID de esta lista para reactivarlos:\n\n"
+        for c in inactivos:
+            texto += f"ID: {c['id_cliente']}  —  {c['nombres']} {c.get('primer_apellido', '')}\n"
+        messagebox.showinfo("Clientes Inactivos", texto)
+
     def al_seleccionar_nota(self, _evento=None):
         seleccion = self.tabla_notas.selection()
-        if seleccion:
-            self.var_texto_nota.set(self.notas_cargadas[seleccion[0]]["descripcion"])
+        if seleccion: self.var_texto_nota.set(self.notas_cargadas[seleccion[0]]["descripcion"])
 
     @con_errores
     def agregar_nota(self):
-        if not self.cliente_actual:
-            raise ValueError("Primero elige un cliente en la tabla de arriba.")
+        if not self.cliente_actual: raise ValueError("Primero elige un cliente arriba.")
         id_empleado = self.cb_empleado_nota.valor()
-        if id_empleado is None:
-            raise ValueError("Elige qué barbero deja la nota.")
+        if id_empleado is None: raise ValueError("Elige qué barbero deja la nota.")
         descripcion = convertir(self.var_texto_nota.get(), "texto", "Nota", True, 1000)
         if not Nota.agregar_nota(self.cliente_actual["id_cliente"], id_empleado, descripcion):
             raise ErrorOperacion("No se pudo agregar la nota.")
@@ -1050,8 +1046,7 @@ class PanelClientes(ttk.Frame):
     @con_errores
     def editar_nota(self):
         id_nota = seleccionado(self.tabla_notas, "Elige una nota de la tabla para editarla.")
-        if id_nota is None:
-            return
+        if id_nota is None: return
         descripcion = convertir(self.var_texto_nota.get(), "texto", "Nota", True, 1000)
         if not Nota.editar_nota(int(id_nota), descripcion):
             raise ErrorOperacion("No se pudo editar la nota.")
@@ -1060,10 +1055,8 @@ class PanelClientes(ttk.Frame):
     @con_errores
     def eliminar_nota(self):
         id_nota = seleccionado(self.tabla_notas, "Elige una nota de la tabla para eliminarla.")
-        if id_nota is None:
-            return
-        if not messagebox.askyesno("Confirmar", "¿Eliminar esta nota por completo?"):
-            return
+        if id_nota is None: return
+        if not messagebox.askyesno("Confirmar", "¿Eliminar esta nota por completo?"): return
         if not Nota.eliminar_nota_por_error(int(id_nota)):
             raise ErrorOperacion("No se pudo eliminar la nota.")
         self.var_texto_nota.set("")
@@ -1103,27 +1096,23 @@ class PanelEmpleados(ttk.Frame):
         for i, (texto, clave) in enumerate(etiquetas):
             fila, columna = divmod(i, 4)
             ttk.Label(formulario, text=texto).grid(row=fila * 2, column=columna, sticky="w", padx=(0, 6))
-            
             tipo_val = "texto"
-            if clave in ("telefono", "cp"): 
-                tipo_val = "entero"
-            elif clave in ("salario_base", "porcentaje_comision"): 
-                tipo_val = "decimal"
-            elif clave in ("nombres", "primer_apellido", "segundo_apellido", "puesto"):
-                tipo_val = "letras"
-                
+            if clave in ("telefono", "cp"): tipo_val = "entero"
+            elif clave in ("salario_base", "porcentaje_comision"): tipo_val = "decimal"
+            elif clave in ("nombres", "primer_apellido", "segundo_apellido", "puesto"): tipo_val = "letras"
             EntradaValidada(formulario, tipo=tipo_val, textvariable=self.campos[clave], width=18).grid(row=fila * 2 + 1, column=columna, sticky="w", padx=(0, 16), pady=(0, 8))
 
         botones = ttk.Frame(formulario)
-        botones.grid(row=8, column=0, columnspan=4, sticky="w", pady=(6, 0))
-        BotonDegradado(botones, text="Registrar empleado", command=self.registrar).pack(side="left")
-        ttk.Button(botones, text="Guardar cambios del elegido", command=self.guardar_cambios).pack(side="left", padx=6)
-        ttk.Button(botones, text="Dar de baja al elegido", command=self.dar_de_baja).pack(side="left")
-        ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left", padx=6)
+        botones.grid(row=8, column=0, columnspan=5, sticky="w", pady=(6, 0))
+        BotonDegradado(botones, text="Registrar", command=self.registrar).pack(side="left")
+        ttk.Button(botones, text="Guardar cambios", command=self.guardar_cambios).pack(side="left", padx=6)
+        ttk.Button(botones, text="Dar de baja", command=self.dar_de_baja).pack(side="left")
+        ttk.Button(botones, text="Eliminar", command=self.eliminar_por_error).pack(side="left", padx=6)
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left")
-        ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(20, 4))
-        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=6).pack(side="left")
+        ttk.Label(botones, text="   Reactivar por ID:").pack(side="left", padx=(10, 4))
+        EntradaValidada(botones, tipo="entero", textvariable=self.var_reactivar, width=5).pack(side="left")
         ttk.Button(botones, text="Reactivar", command=self.reactivar).pack(side="left", padx=6)
+        ttk.Button(botones, text="🔎 Ver inactivos", command=self.ver_inactivos).pack(side="left", padx=(0, 6))
 
         contenedor, self.tabla = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("nombre", "Nombre", 220, "w"), ("puesto", "Puesto", 130, "w"),
@@ -1174,15 +1163,12 @@ class PanelEmpleados(ttk.Frame):
 
     def al_seleccionar(self, _evento=None):
         seleccion = self.tabla.selection()
-        if not seleccion:
-            return
+        if not seleccion: return
         fila = self.filas[seleccion[0]]
         self.empleado_actual = fila
         for clave, var in self.campos.items():
-            if clave in ("salario_base", "porcentaje_comision"):
-                var.set(str(fila.get(clave, "") or ""))
-            else:
-                var.set(fila.get(clave) or "")
+            if clave in ("salario_base", "porcentaje_comision"): var.set(str(fila.get(clave, "") or ""))
+            else: var.set(fila.get(clave) or "")
         self.cargar_historial(fila["id_empleado"])
 
     @con_errores
@@ -1199,8 +1185,7 @@ class PanelEmpleados(ttk.Frame):
 
     @con_errores
     def consultar_servicios(self):
-        if not self.empleado_actual:
-            return
+        if not self.empleado_actual: return
         periodo = {"Semana": "semana", "Mes": "mes", "Todo": "todo"}[self.cb_periodo_servicios.get()]
         filas = HistorialEmpleado.obtener_servicios_cobrados(self.empleado_actual["id_empleado"], periodo)
         llenar_tabla(self.tabla_servicios, [dict(f, _id=i) for i, f in enumerate(filas)],
@@ -1208,14 +1193,11 @@ class PanelEmpleados(ttk.Frame):
 
     @con_errores
     def calcular_nomina(self):
-        if not self.empleado_actual:
-            raise ValueError("Primero elige un empleado en la tabla.")
+        if not self.empleado_actual: raise ValueError("Primero elige un empleado en la tabla.")
         resultado = Nomina.calcular_pago_semanal(self.empleado_actual["id_empleado"])
-        if "error" in resultado:
-            raise ErrorOperacion(resultado["error"])
+        if "error" in resultado: raise ErrorOperacion(resultado["error"])
         self.var_nomina.set(
-            f"Empleado: {resultado['empleado']}\n"
-            f"Salario base: {dinero(resultado['salario_base'])}\n"
+            f"Empleado: {resultado['empleado']}\nSalario base: {dinero(resultado['salario_base'])}\n"
             f"Comisión: {resultado['porcentaje_comision']} sobre {dinero(resultado['total_generado_a_la_barberia'])} generados = {dinero(resultado['comision_ganada'])}\n"
             f"Total a pagar esta semana: {dinero(resultado['total_a_pagar'])}"
         )
@@ -1223,7 +1205,7 @@ class PanelEmpleados(ttk.Frame):
     @con_errores
     def registrar(self):
         if not Empleado.registrar_empleado(*self._leer_formulario()):
-            raise ErrorOperacion("No se pudo registrar el empleado (revisa que la CURP y el teléfono no estén repetidos).")
+            raise ErrorOperacion("No se pudo registrar el empleado (revisa CURP o teléfono repetido).")
         self.limpiar()
         self.refrescar()
 
@@ -1248,36 +1230,27 @@ class PanelEmpleados(ttk.Frame):
 
     @con_errores
     def guardar_cambios(self):
-        if not self.empleado_actual:
-            raise ValueError("Elige un empleado de la tabla para editarlo.")
+        if not self.empleado_actual: raise ValueError("Elige un empleado de la tabla para editarlo.")
         if not Empleado.editar_empleado(self.empleado_actual["id_empleado"], *self._leer_formulario()):
-            raise ErrorOperacion("No se pudo guardar los cambios (revisa que la CURP y el teléfono no estén repetidos).")
+            raise ErrorOperacion("No se pudo guardar los cambios.")
         self.limpiar()
         self.refrescar()
 
     @con_errores
     def eliminar_por_error(self):
-        id_empleado = seleccionado(self.tabla, "Elige un empleado de la tabla para eliminarlo.")
-        if id_empleado is None:
-            return
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra al empleado por completo (no es darlo de baja). Solo funciona si nunca ha "
-            "tenido citas, servicios cobrados o notas a su nombre. ¿Continuar?",
-        ):
-            return
+        id_empleado = seleccionado(self.tabla, "Elige un empleado para eliminarlo.")
+        if id_empleado is None: return
+        if not messagebox.askyesno("Confirmar", "Esto borra al empleado por completo. ¿Continuar?"): return
         if not Empleado.eliminar_empleado_por_error(int(id_empleado)):
-            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene historial; usa \"Dar de baja\" en su lugar).")
+            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene historial).")
         self.limpiar()
         self.refrescar()
 
     @con_errores
     def dar_de_baja(self):
-        id_empleado = seleccionado(self.tabla, "Elige un empleado de la tabla para darlo de baja.")
-        if id_empleado is None:
-            return
-        if not messagebox.askyesno("Confirmar", "¿Dar de baja al empleado seleccionado?"):
-            return
+        id_empleado = seleccionado(self.tabla, "Elige un empleado para darlo de baja.")
+        if id_empleado is None: return
+        if not messagebox.askyesno("Confirmar", "¿Dar de baja al empleado seleccionado?"): return
         Empleado.dar_de_baja(int(id_empleado))
         self.limpiar()
         self.refrescar()
@@ -1285,15 +1258,23 @@ class PanelEmpleados(ttk.Frame):
     @con_errores
     def reactivar(self):
         texto = self.var_reactivar.get().strip()
-        if not texto.isdigit():
-            raise ValueError("Escribe el ID numérico del empleado que quieres reactivar.")
+        if not texto.isdigit(): raise ValueError("Escribe el ID numérico del empleado a reactivar.")
         Empleado.reactivar_empleado(int(texto))
         self.var_reactivar.set("")
         self.refrescar()
+        
+    def ver_inactivos(self):
+        inactivos = Empleado.obtener_empleados_inactivos()
+        if not inactivos:
+            messagebox.showinfo("Inactivos", "No hay empleados dados de baja en el sistema.")
+            return
+        texto = "Usa el ID de esta lista para reactivarlos:\n\n"
+        for e in inactivos:
+            texto += f"ID: {e['id_empleado']}  —  {e['nombres']} {e.get('primer_apellido', '')}\n"
+        messagebox.showinfo("Empleados Inactivos", texto)
 
     def limpiar(self):
-        for var in self.campos.values():
-            var.set("")
+        for var in self.campos.values(): var.set("")
         self.tabla.selection_remove(*self.tabla.selection())
 
 
@@ -1314,11 +1295,9 @@ class PanelServicios(ttk.Frame):
             ("Nombre *", self.var_nombre, 26), ("Precio *", self.var_precio, 14), ("Duración (minutos) *", self.var_duracion, 14),
         ]):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            
             tipo_val = "texto"
             if "Precio" in texto: tipo_val = "decimal"
             elif "Duración" in texto: tipo_val = "entero"
-            
             EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
             
         botones = ttk.Frame(formulario)
@@ -1342,8 +1321,7 @@ class PanelServicios(ttk.Frame):
 
     def al_seleccionar(self, _evento=None):
         seleccion = self.tabla.selection()
-        if not seleccion:
-            return
+        if not seleccion: return
         fila = self.filas[seleccion[0]]
         self.var_nombre.set(fila["nombre_servicio"])
         self.var_precio.set(str(fila["precio_actual"]))
@@ -1354,6 +1332,10 @@ class PanelServicios(ttk.Frame):
         nombre = convertir(self.var_nombre.get(), "texto", "Nombre", True, 100)
         precio = convertir(self.var_precio.get(), "decimal", "Precio")
         duracion = convertir(self.var_duracion.get(), "entero", "Duración")
+        
+        if duracion <= 0: 
+            raise ValueError("La duración debe ser mayor a 0 minutos.")
+            
         if not Servicio.registrar_servicio(nombre, precio, duracion):
             raise ErrorOperacion("No se pudo registrar el servicio.")
         self.limpiar()
@@ -1362,11 +1344,14 @@ class PanelServicios(ttk.Frame):
     @con_errores
     def guardar_cambios(self):
         id_servicio = seleccionado(self.tabla, "Elige un servicio de la tabla para editarlo.")
-        if id_servicio is None:
-            return
+        if id_servicio is None: return
         nombre = convertir(self.var_nombre.get(), "texto", "Nombre", True, 100)
         precio = convertir(self.var_precio.get(), "decimal", "Precio")
         duracion = convertir(self.var_duracion.get(), "entero", "Duración")
+        
+        if duracion <= 0: 
+            raise ValueError("La duración debe ser mayor a 0 minutos.")
+            
         if not Servicio.editar_servicio(int(id_servicio), nombre, precio, duracion):
             raise ErrorOperacion("No se pudo guardar los cambios.")
         self.limpiar()
@@ -1375,15 +1360,10 @@ class PanelServicios(ttk.Frame):
     @con_errores
     def eliminar_por_error(self):
         id_servicio = seleccionado(self.tabla, "Elige un servicio de la tabla para eliminarlo.")
-        if id_servicio is None:
-            return
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra el servicio por completo. Solo funciona si nunca se ha usado en una cita ni en una venta.\n¿Continuar?",
-        ):
-            return
+        if id_servicio is None: return
+        if not messagebox.askyesno("Confirmar", "Esto borra el servicio por completo. ¿Continuar?"): return
         if not Servicio.eliminar_servicio_por_error(int(id_servicio)):
-            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene historial); edítalo en vez de borrarlo.")
+            raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene historial).")
         self.limpiar()
         self.refrescar()
 
@@ -1412,11 +1392,9 @@ class PanelProductos(ttk.Frame):
             ("Precio de venta *", self.var_precio, 12), ("Stock inicial", self.var_stock_inicial, 10),
         ]):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            
             tipo_val = "texto"
             if "Precio" in texto: tipo_val = "decimal"
             elif "Stock" in texto: tipo_val = "entero"
-            
             EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
             
         botones = ttk.Frame(formulario)
@@ -1431,7 +1409,7 @@ class PanelProductos(ttk.Frame):
         contenedor, self.tabla = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("nombre", "Nombre", 220, "w"), ("marca", "Marca", 140, "w"),
             ("precio", "Precio", 100, "e"), ("stock", "Stock", 90, "e"),
-        ], altura=6)
+        ], altura=4)
         contenedor.pack(fill="x", pady=(14, 0))
         self.tabla.bind("<<TreeviewSelect>>", self.al_seleccionar)
 
@@ -1446,11 +1424,9 @@ class PanelProductos(ttk.Frame):
             ("Costo unitario *", self.var_costo, 12), ("Caducidad (opcional)", self.var_caducidad, 12),
         ]):
             ttk.Label(entradas, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 6))
-            
             tipo_val = "texto"
             if "Cantidad" in texto: tipo_val = "entero"
             elif "Costo" in texto: tipo_val = "decimal"
-            
             EntradaValidada(entradas, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16))
             
         BotonDegradado(entradas, text="Registrar entrada (suma al stock)", command=self.registrar_entrada).grid(row=1, column=4, sticky="w")
@@ -1474,25 +1450,27 @@ class PanelProductos(ttk.Frame):
 
     def al_seleccionar(self, _evento=None):
         seleccion = self.tabla.selection()
-        if seleccion:
-            self.var_nuevo_precio.set(str(self.filas[seleccion[0]]["precio_venta_actual"]))
+        if seleccion: self.var_nuevo_precio.set(str(self.filas[seleccion[0]]["precio_venta_actual"]))
 
     @con_errores
     def registrar(self):
         nombre = convertir(self.var_nombre.get(), "texto", "Nombre", True, 100)
         marca = convertir(self.var_marca.get(), "texto", "Marca", True, 50)
         precio = convertir(self.var_precio.get(), "decimal", "Precio de venta")
-        stock = convertir(self.var_stock_inicial.get(), "entero", "Stock inicial", False)
+        stock = convertir(self.var_stock_inicial.get(), "entero", "Stock inicial", True)
+        
+        if stock <= 0:
+            raise ValueError("El stock debe ser mayor a 0.")
+            
         if not Producto.registrar_producto(nombre, marca, precio, stock or 0):
             raise ErrorOperacion("No se pudo registrar el producto.")
-        self.var_nombre.set(""); self.var_marca.set(""); self.var_precio.set(""); self.var_stock_inicial.set("0")
+        self.limpiar_formulario()
         self.refrescar()
 
     @con_errores
     def actualizar_precio(self):
         id_producto = seleccionado(self.tabla, "Elige un producto de la tabla.")
-        if id_producto is None:
-            return
+        if id_producto is None: return
         nuevo_precio = convertir(self.var_nuevo_precio.get(), "decimal", "Nuevo precio")
         if not Producto.actualizar_precio_producto(int(id_producto), nuevo_precio):
             raise ErrorOperacion("No se pudo actualizar el precio.")
@@ -1500,9 +1478,8 @@ class PanelProductos(ttk.Frame):
 
     @con_errores
     def guardar_nombre_marca(self):
-        id_producto = seleccionado(self.tabla, "Elige un producto de la tabla para editar su nombre o marca.")
-        if id_producto is None:
-            return
+        id_producto = seleccionado(self.tabla, "Elige un producto de la tabla para editarlo.")
+        if id_producto is None: return
         nombre = convertir(self.var_nombre.get(), "texto", "Nombre", True, 100)
         marca = convertir(self.var_marca.get(), "texto", "Marca", True, 50)
         if not Producto.editar_producto(int(id_producto), nombre, marca):
@@ -1513,14 +1490,8 @@ class PanelProductos(ttk.Frame):
     @con_errores
     def eliminar_por_error(self):
         id_producto = seleccionado(self.tabla, "Elige un producto de la tabla para eliminarlo.")
-        if id_producto is None:
-            return
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra el producto por completo. Solo funciona si nunca ha tenido entradas de "
-            "inventario ni ventas. ¿Continuar?",
-        ):
-            return
+        if id_producto is None: return
+        if not messagebox.askyesno("Confirmar", "Esto borra el producto por completo. ¿Continuar?"): return
         if not Producto.eliminar_producto_por_error(int(id_producto)):
             raise ErrorOperacion("No se pudo eliminar (probablemente ya tiene historial de compras o ventas).")
         self.limpiar_formulario()
@@ -1534,14 +1505,18 @@ class PanelProductos(ttk.Frame):
     @con_errores
     def registrar_entrada(self):
         id_producto = seleccionado(self.tabla, "Elige un producto de la tabla para registrarle una entrada.")
-        if id_producto is None:
-            return
+        if id_producto is None: return
         fecha = validar_fecha(self.var_fecha_llegada.get())
         cantidad = convertir(self.var_cantidad.get(), "entero", "Cantidad")
-        if cantidad < 1:
-            raise ValueError("La cantidad debe ser de al menos 1.")
+        
+        if cantidad < 1: raise ValueError("La cantidad debe ser de al menos 1.")
+        
         costo = convertir(self.var_costo.get(), "decimal", "Costo unitario")
         caducidad = validar_fecha(self.var_caducidad.get(), "La caducidad", obligatorio=False)
+        
+        if caducidad and caducidad < fecha:
+            raise ValueError("La fecha de caducidad no puede ser anterior a la fecha de llegada.")
+            
         if not EntradaInventario.registrar_entrada(int(id_producto), fecha.isoformat(), cantidad, costo, caducidad.isoformat() if caducidad else None):
             raise ErrorOperacion("No se pudo registrar la entrada.")
         self.var_cantidad.set(""); self.var_costo.set(""); self.var_caducidad.set("")
@@ -1549,15 +1524,9 @@ class PanelProductos(ttk.Frame):
 
     @con_errores
     def eliminar_entrada_por_error(self):
-        id_entrada = seleccionado(self.tabla_entradas, "Elige una entrada de la tabla de abajo para eliminarla.")
-        if id_entrada is None:
-            return
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra el registro de esa compra y le RESTA esa cantidad al stock del producto.\n"
-            "Si parte de esa mercancía ya se vendió, no se podrá eliminar. ¿Continuar?",
-        ):
-            return
+        id_entrada = seleccionado(self.tabla_entradas, "Elige una entrada para eliminarla.")
+        if id_entrada is None: return
+        if not messagebox.askyesno("Confirmar", "Esto borra la compra y le RESTA esa cantidad al stock. ¿Continuar?"): return
         if not EntradaInventario.eliminar_entrada_por_error(int(id_entrada)):
             raise ErrorOperacion("No se pudo eliminar la entrada (probablemente ya se vendió parte de esa mercancía).")
         self.refrescar()
@@ -1636,8 +1605,7 @@ class PanelFinanzas(ttk.Frame):
     def hacer_corte(self):
         fecha = validar_fecha(self.var_fecha_corte.get(), "La fecha del corte")
         resultado = Reporte.obtener_corte_caja_diario(fecha.isoformat())
-        if resultado.get("error"):
-            raise ErrorOperacion(f"No se pudo generar el corte: {resultado['error']}")
+        if resultado.get("error"): raise ErrorOperacion(f"No se pudo generar el corte: {resultado['error']}")
         self.var_total_corte.set(dinero(resultado["gran_total_del_dia"]))
         llenar_tabla(self.tabla_corte, [
             {"id": i, "metodo": fila["metodo_pago"], "total": fila["total_recaudado"], "tickets": fila["numero_tickets"]}
@@ -1648,11 +1616,9 @@ class PanelFinanzas(ttk.Frame):
     def consultar_rango(self):
         desde = validar_fecha(self.var_desde.get(), "La fecha de inicio")
         hasta = validar_fecha(self.var_hasta.get(), "La fecha final")
-        if hasta < desde:
-            raise ValueError("La fecha final no puede ser anterior a la fecha de inicio.")
+        if hasta < desde: raise ValueError("La fecha final no puede ser anterior a la fecha de inicio.")
         resultado = Finanzas.obtener_ingresos_por_rango(desde.isoformat(), hasta.isoformat())
-        if resultado is None:
-            raise ErrorOperacion("No se pudo consultar el rango de fechas.")
+        if resultado is None: raise ErrorOperacion("No se pudo consultar el rango de fechas.")
         self.var_resultado_rango.set(
             f"Del {resultado['fecha_inicio']} al {resultado['fecha_fin']}: "
             f"{dinero(resultado['gran_total'])} en {resultado['cantidad_tickets']} ticket(s)."
@@ -1698,14 +1664,12 @@ class PanelRespaldos(ttk.Frame):
     @con_errores
     def restaurar(self):
         ruta = filedialog.askopenfilename(title="Elige un respaldo", filetypes=[("Archivos SQL", "*.sql")])
-        if not ruta:
-            return
+        if not ruta: return
         if not messagebox.askyesno(
             "Confirmar restauración",
             "Esto reemplaza el contenido actual de la base de datos con el del respaldo elegido.\n"
             "No se puede deshacer. ¿Continuar?",
-        ):
-            return
+        ): return
         gestor = GestorRespaldos()
         if gestor.restaurar_respaldo(ruta):
             self.var_estado.set(f"Base de datos restaurada desde:\n{ruta}")
@@ -1737,7 +1701,6 @@ class PanelUsuarios(ttk.Frame):
         ]
         for i, (texto, var, ancho) in enumerate(campos):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 4))
-            
             tipo_val = "letras" if "Nombre" in texto or "Apellido" in texto else "texto"
             EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
             
@@ -1770,7 +1733,6 @@ class PanelUsuarios(ttk.Frame):
         self.tabla.bind("<<TreeviewSelect>>", self.al_seleccionar)
 
     def _comprobar_unico_dueno(self, id_usuario_afectado):
-        """Retorna True si el usuario proporcionado es el ÚNICO Dueño activo en el sistema."""
         duenos_activos = [u for u in self.filas.values() if u.get("rol") == "Dueño" and u.get("estado") == "Activo"]
         if len(duenos_activos) <= 1:
             for u in duenos_activos:
@@ -1788,8 +1750,7 @@ class PanelUsuarios(ttk.Frame):
 
     def al_seleccionar(self, _evento=None):
         seleccion = self.tabla.selection()
-        if not seleccion:
-            return
+        if not seleccion: return
         fila = self.filas[seleccion[0]]
         self.usuario_elegido = fila
         self.var_nombres.set(fila.get("nombres", ""))
@@ -1814,9 +1775,7 @@ class PanelUsuarios(ttk.Frame):
 
     @con_errores
     def guardar_cambios(self):
-        if not self.usuario_elegido:
-            raise ValueError("Elige un usuario de la tabla para editarlo.")
-            
+        if not self.usuario_elegido: raise ValueError("Elige un usuario de la tabla para editarlo.")
         nombres = convertir(self.var_nombres.get(), "texto", "Nombre(s)", True, 50)
         apellido1 = convertir(self.var_apellido1.get(), "texto", "Apellido paterno", True, 50)
         apellido2 = convertir(self.var_apellido2.get(), "texto", "Apellido materno", False, 50)
@@ -1829,7 +1788,7 @@ class PanelUsuarios(ttk.Frame):
 
         if self.usuario_elegido["rol"] == "Dueño" and rol != "Dueño":
             if self._comprobar_unico_dueno(self.usuario_elegido["id_usuario"]):
-                raise ValueError("No puedes quitarle el rol de Dueño a esta persona porque es el último administrador activo en el sistema.")
+                raise ValueError("No puedes quitarle el rol de Dueño a esta persona porque es el último administrador activo.")
 
         if not Usuario.editar_usuario(self.usuario_elegido["id_usuario"], nombres, apellido1, apellido2, rol):
             raise ErrorOperacion("No se pudieron guardar los cambios básicos.")
@@ -1837,7 +1796,6 @@ class PanelUsuarios(ttk.Frame):
         try:
             conexion = ConexionDB().conectar()
             cursor = conexion.cursor()
-            
             cursor.execute("SELECT id_usuario FROM usuarios WHERE username = %s AND id_usuario != %s", 
                            (username, self.usuario_elegido["id_usuario"]))
             if cursor.fetchone():
@@ -1863,44 +1821,31 @@ class PanelUsuarios(ttk.Frame):
     @con_errores
     def activar(self):
         id_usuario = seleccionado(self.tabla, "Elige un usuario de la tabla para activarlo.")
-        if id_usuario is None:
-            return
+        if id_usuario is None: return
         Usuario.cambiar_estado(int(id_usuario), True)
         self.refrescar()
 
     @con_errores
     def desactivar(self):
         id_usuario = seleccionado(self.tabla, "Elige un usuario de la tabla para desactivarlo.")
-        if id_usuario is None:
-            return
+        if id_usuario is None: return
         if int(id_usuario) == self.usuario_actual["id_usuario"]:
             raise ValueError("No puedes desactivar tu propia cuenta mientras tienes la sesión abierta.")
-            
         if self._comprobar_unico_dueno(int(id_usuario)):
             raise ValueError("No puedes desactivar a este usuario porque el sistema se quedaría sin administradores (Dueños) activos.")
-            
-        if not messagebox.askyesno("Confirmar", "¿Desactivar esta cuenta? Ya no podrá iniciar sesión."):
-            return
+        if not messagebox.askyesno("Confirmar", "¿Desactivar esta cuenta? Ya no podrá iniciar sesión."): return
         Usuario.cambiar_estado(int(id_usuario), False)
         self.refrescar()
 
     @con_errores
     def eliminar_por_error(self):
         id_usuario = seleccionado(self.tabla, "Elige un usuario de la tabla para eliminarlo.")
-        if id_usuario is None:
-            return
+        if id_usuario is None: return
         if int(id_usuario) == self.usuario_actual["id_usuario"]:
             raise ValueError("No puedes eliminar tu propia cuenta mientras tienes la sesión abierta.")
-            
         if self._comprobar_unico_dueno(int(id_usuario)):
             raise ValueError("No puedes eliminar a este usuario porque el sistema se quedaría sin administradores (Dueños) activos.")
-            
-        if not messagebox.askyesno(
-            "Confirmar",
-            "Esto borra la cuenta por completo. Solo funciona si esa persona nunca ha cobrado un "
-            "ticket de venta; si ya operó la caja, usa \"Desactivar\" en su lugar. ¿Continuar?",
-        ):
-            return
+        if not messagebox.askyesno("Confirmar", "Esto borra la cuenta por completo. ¿Continuar?"): return
         if not Usuario.eliminar_usuario_por_error(int(id_usuario)):
             raise ErrorOperacion("No se pudo eliminar (es el administrador principal o ya tiene ventas registradas).")
         self.limpiar()
@@ -1922,14 +1867,15 @@ class Aplicacion(tk.Tk):
         super().__init__()
         self.usuario_actual = usuario_actual
         self.title("Barbería · Sistema de gestión")
-        self.geometry("1220x820")
-        self.minsize(1080, 720)
+        
+        self.geometry("1100x650")
+        self.minsize(1024, 600)
+        
         self.configure(bg=FONDO)
         aplicar_estilos(self)
         
         self.protocol("WM_DELETE_WINDOW", self.confirmar_salida)
 
-        # Carga del logo personalizado
         try:
             ruta_png = os.path.join(os.path.dirname(__file__), "logo.png")
             ruta_ico = os.path.join(os.path.dirname(__file__), "logo.ico")

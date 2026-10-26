@@ -4,6 +4,12 @@ class Producto:
     
     @staticmethod
     def registrar_producto(nombre_producto, marca, precio_venta_actual, stock_total):
+        # Validación de precios y stock
+        if precio_venta_actual <= 0:
+            raise ValueError("El precio del producto debe ser mayor a $0.")
+        if stock_total < 0:
+            raise ValueError("El stock inicial no puede ser menor a 0.")
+
         # Registra un nuevo producto físico en el inventario.
         db = ConexionDB()
         conexion = db.conectar()
@@ -74,6 +80,10 @@ class Producto:
 
     @staticmethod
     def actualizar_precio_producto(id_producto, nuevo_precio):
+        # Validación para no permitir precios en cero o negativos
+        if nuevo_precio <= 0:
+            raise ValueError("El nuevo precio debe ser mayor a $0.")
+
         # Actualiza el precio de venta de un producto.
         db = ConexionDB()
         conexion = db.conectar()

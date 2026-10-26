@@ -4,6 +4,10 @@ class Servicio:
     
     @staticmethod
     def registrar_servicio(nombre_servicio, precio_actual, duracion_minutos):
+        # Validación para no permitir precios en cero o negativos
+        if precio_actual <= 0:
+            raise ValueError("El precio del servicio debe ser mayor a $0.")
+
         # Guarda un nuevo servicio de barbería en la base de datos.
         db = ConexionDB()
         conexion = db.conectar()
@@ -50,6 +54,10 @@ class Servicio:
 
     @staticmethod
     def editar_servicio(id_servicio, nombre_servicio, precio_actual, duracion_minutos):
+        # Validación para no permitir precios en cero o negativos
+        if precio_actual <= 0:
+            raise ValueError("El precio del servicio debe ser mayor a $0.")
+
         # Edita los datos del servicio (para corregir precios, duración o nombres).
         db = ConexionDB()
         conexion = db.conectar()
