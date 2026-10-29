@@ -86,63 +86,59 @@ class Venta:
                 db.desconectar()
         return None
 
-    @staticmethod
-    def obtener_detalle_ticket(id_venta):
-        # Devuelve toda la info de un ticket (cliente, empleado, servicios y productos) para imprimirlo.
+    @classmethod
+    def obtener_detalle_ticket(cls, id_venta):
         db = ConexionDB()
         conexion = db.conectar()
-        
-        if conexion:
-            try:
-                cursor = conexion.cursor(dictionary=True)
-                
-                # Datos generales de la venta
-                cursor.execute("""
-                    SELECT v.id_venta, v.fecha_hora, v.total, v.metodo_pago, 
-                           c.nombres AS cliente_nombres, c.primer_apellido AS cliente_apellido
-                    FROM Ventas v
-                    LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
-                    WHERE v.id_venta = %s
-                """, (id_venta,))
-                # LEFT JOIN porque si borraron al cliente, aún así debe mostrar el ticket.
-                venta = cursor.fetchone()
-                
-                if not venta:
-                    return None
-
-                # Servicios cobrados en este ticket
-                cursor.execute("""
-                    SELECT s.nombre_servicio, ds.precio_cobrado, e.nombres AS barbero
-                    FROM Detalle_Venta_Servicios ds
-                    INNER JOIN Servicios s ON ds.id_servicio = s.id_servicio
-                    INNER JOIN Empleados e ON ds.id_empleado = e.id_empleado
-                    WHERE ds.id_venta = %s
-                """, (id_venta,))
-                servicios = cursor.fetchall()
-
-                # Productos vendidos en este ticket
-                cursor.execute("""
-                    SELECT p.nombre_producto, dp.cantidad, dp.precio_cobrado
-                    FROM Detalle_Venta_Productos dp
-                    INNER JOIN Productos p ON dp.id_producto = p.id_producto
-                    WHERE dp.id_venta = %s
-                """, (id_venta,))
-                productos = cursor.fetchall()
-
-                # Empaquetamos todo en un diccionario para la impresora o pantalla
-                return {
-                    "ticket": venta,
-                    "servicios": servicios,
-                    "productos": productos
-                }
-
-            except Exception as e:
-                print(f"Error al obtener el detalle del ticket: {e}")
-                return None
-            finally:
-                cursor.close()
-                db.desconectar()
-        return None
+        if not conexion: return None
+        try:
+            cursor = conexion.cursor(dictionary=True)
+            
+            sql_ticket = """
+                SELECT v.*, 
+                       c.nombres AS cliente_nombres, c.primer_apellido AS cliente_apellido,
+                       u.nombres AS cajero_nombres, u.primer_apellido AS cajero_apellido
+                FROM Ventas v
+                LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
+                LEFT JOIN Usuarios u ON v.id_usuario = u.id_usuario
+                WHERE v.id_venta = %s
+            """
+            cursor.execute(sql_ticket, (id_venta,))
+            ticket = cursor.fetchone()
+            if not ticket: return None
+            
+            # Usando el nombre exacto de la tabla 10 de tu inicializar_bd.py
+            sql_servicios = """
+                SELECT vs.precio_cobrado, s.nombre_servicio, 
+                       CONCAT(e.nombres, ' ', IFNULL(e.primer_apellido, '')) as barbero
+                FROM Detalle_Venta_Servicios vs
+                JOIN Servicios s ON vs.id_servicio = s.id_servicio
+                JOIN Empleados e ON vs.id_empleado = e.id_empleado
+                WHERE vs.id_venta = %s
+            """
+            cursor.execute(sql_servicios, (id_venta,))
+            servicios = cursor.fetchall()
+            
+            # Usando el nombre exacto de la tabla 11 de tu inicializar_bd.py
+            sql_productos = """
+                SELECT vp.cantidad, vp.precio_cobrado, p.nombre_producto
+                FROM Detalle_Venta_Productos vp
+                JOIN Productos p ON vp.id_producto = p.id_producto
+                WHERE vp.id_venta = %s
+            """
+            cursor.execute(sql_productos, (id_venta,))
+            productos = cursor.fetchall()
+            
+            return {
+                "ticket": ticket,
+                "servicios": servicios,
+                "productos": productos
+            }
+        except Exception as e:
+            raise Exception(f"Falla en la base de datos al buscar el ticket:\n{e}")
+        finally:
+            if 'cursor' in locals(): cursor.close()
+            db.desconectar()
 
     @staticmethod
     def cancelar_venta_por_error(id_venta):
@@ -192,3 +188,33 @@ class Venta:
                 cursor.close()
                 db.desconectar()
         return False
+
+    @classmethod
+    def buscar_ventas_por_termino(cls, termino):
+        db = ConexionDB()
+        conexion = db.conectar()
+        if not conexion: return []
+        try:
+            cursor = conexion.cursor(dictionary=True)
+            sql = """
+                SELECT v.id_venta, v.fecha_hora, v.metodo_pago, v.total,
+                       c.nombres, c.primer_apellido, c.segundo_apellido
+                FROM Ventas v
+                LEFT JOIN Clientes c ON v.id_cliente = c.id_cliente
+                WHERE v.id_venta LIKE %s 
+                   OR v.fecha_hora LIKE %s 
+                   OR c.nombres LIKE %s 
+                   OR c.primer_apellido LIKE %s 
+                   OR c.segundo_apellido LIKE %s
+                ORDER BY v.id_venta DESC
+                LIMIT 50
+            """
+            like_term = f"%{termino}%"
+            cursor.execute(sql, (like_term, like_term, like_term, like_term, like_term))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al buscar ventas: {e}")
+            return []
+        finally:
+            if 'cursor' in locals(): cursor.close()
+            db.desconectar()

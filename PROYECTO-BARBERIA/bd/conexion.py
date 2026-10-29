@@ -34,3 +34,18 @@ class ConexionDB:
     def desconectar(self):
         if self.conexion and self.conexion.is_connected():
             self.conexion.close()
+
+    @classmethod
+    def comprobar_estado_sistema(cls):
+        import mysql.connector
+        try:
+            db = cls()
+            conexion = db.conectar()
+            if conexion:
+                conexion.close()
+                return "OK", None
+            return "ERROR_DESCONOCIDO", "No se pudo establecer la conexión."
+        except mysql.connector.Error as e:
+            if e.errno == 1049:
+                return "NO_EXISTE_BD", e
+            return "ERROR_CONEXION", e

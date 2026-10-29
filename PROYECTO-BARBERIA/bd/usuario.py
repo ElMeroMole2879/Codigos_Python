@@ -209,3 +209,30 @@ class Usuario:
                 cursor.close()
                 db.desconectar()
         return False
+
+    @classmethod
+    def actualizar_credenciales(cls, id_usuario, username, password=None):
+        db = ConexionDB()
+        conexion = db.conectar()
+        if not conexion:
+            return False, "Error de conexión con la base de datos."
+        try:
+            cursor = conexion.cursor()
+            cursor.execute("SELECT id_usuario FROM usuarios WHERE username = %s AND id_usuario != %s", 
+                           (username, id_usuario))
+            if cursor.fetchone():
+                return False, "Ese nombre de usuario ya lo está ocupando otra persona."
+            
+            if password:
+                cursor.execute("UPDATE usuarios SET username = %s, password = %s WHERE id_usuario = %s",
+                               (username, password, id_usuario))
+            else:
+                cursor.execute("UPDATE usuarios SET username = %s WHERE id_usuario = %s",
+                               (username, id_usuario))
+            conexion.commit()
+            return True, ""
+        except Exception as e:
+            return False, f"Ocurrió un error de base de datos: {e}"
+        finally:
+            if 'cursor' in locals(): cursor.close()
+            db.desconectar()
