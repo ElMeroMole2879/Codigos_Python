@@ -3,7 +3,7 @@ from bd.conexion import ConexionDB
 class Producto:
     
     @staticmethod
-    def registrar_producto(nombre_producto, marca, precio_venta_actual, stock_total):
+    def registrar_producto(nombre_producto, marca, precio_venta_actual, stock_total, caracteristicas=""):
         # Validación de precios y stock
         if precio_venta_actual <= 0:
             raise ValueError("El precio del producto debe ser mayor a $0.")
@@ -17,9 +17,9 @@ class Producto:
         if conexion:
             try:
                 cursor = conexion.cursor()
-                sql = """INSERT INTO Productos (nombre_producto, marca, precio_venta_actual, stock_total) 
-                         VALUES (%s, %s, %s, %s)"""
-                valores = (nombre_producto, marca, precio_venta_actual, stock_total)
+                sql = """INSERT INTO Productos (nombre_producto, marca, precio_venta_actual, stock_total, caracteristicas) 
+                         VALUES (%s, %s, %s, %s, %s)"""
+                valores = (nombre_producto, marca, precio_venta_actual, stock_total, caracteristicas)
                 
                 cursor.execute(sql, valores)
                 conexion.commit()
@@ -107,16 +107,16 @@ class Producto:
         return False
 
     @staticmethod
-    def editar_producto(id_producto, nombre_producto, marca):
-        # Edita los datos de texto (nombre y marca) si hubo un error ortográfico.
+    def editar_producto(id_producto, nombre_producto, marca, caracteristicas=""):
+        # Edita los datos de texto (nombre, marca y características) si hubo un error ortográfico.
         db = ConexionDB()
         conexion = db.conectar()
         
         if conexion:
             try:
                 cursor = conexion.cursor()
-                sql = "UPDATE Productos SET nombre_producto = %s, marca = %s WHERE id_producto = %s"
-                cursor.execute(sql, (nombre_producto, marca, id_producto))
+                sql = "UPDATE Productos SET nombre_producto = %s, marca = %s, caracteristicas = %s WHERE id_producto = %s"
+                cursor.execute(sql, (nombre_producto, marca, caracteristicas, id_producto))
                 conexion.commit()
                 print(f"Éxito: Datos del producto {id_producto} actualizados.")
                 return True

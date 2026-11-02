@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>af06 - Prácticas Profesionales</title>
+    <link rel="stylesheet" href="estilos.css">
+    <!-- Fuente moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <a href="index.html" class="volver-link">← volver P/index</a>
+        <h1>Prácticas Profesionales</h1>
+        <p class="subtitulo">Oportunidades en Monterrey para Ingenieros Administradores de Sistemas</p>
+    </header>
+
+    <main class="contenedor-empresas">
+        <!-- Emp 1 -->
+        <section class="empresa" id="emp1">
+            <div class="logo-placeholder">JC</div>
+            <h2>Johnson Controls</h2>
+            <p class="ubicacion">📍 Monterrey, N.L.</p>
+            <p class="descripcion">Desarrollo de software, ciberseguridad e infraestructura de redes.</p>
+            <button onclick="irAEmpresa('Johnson Controls', 'https://jobs.johnsoncontrols.com/es/')">Aplicar aquí</button>
+        </section>
+
+        <!-- Emp 2 -->
+        <section class="empresa" id="emp2">
+            <div class="logo-placeholder">SF</div>
+            <h2>Softtek</h2>
+            <p class="ubicacion">📍 Monterrey, N.L.</p>
+            <p class="descripcion">Administración de bases de datos, desarrollo backend y soporte TI.</p>
+            <button onclick="irAEmpresa('Softtek', 'https://www.softtek.com/es-mx/carreras')">Aplicar aquí</button>
+        </section>
+
+        <!-- Emp 3 -->
+        <section class="empresa" id="emp3">
+            <div class="logo-placeholder">EP</div>
+            <h2>Epicor Software</h2>
+            <p class="ubicacion">📍 Monterrey, N.L.</p>
+            <p class="descripcion">Implementación de sistemas ERP, consultas SQL y automatización.</p>
+            <button onclick="irAEmpresa('Epicor Software', 'https://www.epicor.com/es-mx/company/careers/')">Aplicar aquí</button>
+        </section>
+    </main>
+
+    <script src="alertas.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 from bd.conexion import ConexionDB
 from datetime import datetime
+from decimal import Decimal
 
 class Venta:
     
@@ -33,10 +34,15 @@ class Venta:
                             print(f"Alerta: No hay stock suficiente de '{nombre_prod}'. Tienes {stock_actual} y el cliente pide {prod['cantidad']}.")
                             return None # Cancelamos la venta antes de escribir nada en la BD
                 
-                # Insertar el ticket principal en Ventas
-                sql_venta = """INSERT INTO Ventas (id_cliente, id_usuario, fecha_hora, total, metodo_pago) 
-                               VALUES (%s, %s, %s, %s, %s)"""
-                cursor.execute(sql_venta, (id_cliente, id_usuario, fecha_hora, total, metodo_pago))
+                # Calcular el subtotal e IVA en el backend para la nueva estructura de la tabla
+                total_dec = Decimal(str(total))
+                subtotal = (total_dec / Decimal("1.16")).quantize(Decimal("0.01"))
+                iva = (total_dec - subtotal).quantize(Decimal("0.01"))
+
+                # Insertar el ticket principal en Ventas (AQUÍ SE AGREGARON SUBTOTAL E IVA)
+                sql_venta = """INSERT INTO Ventas (id_cliente, id_usuario, fecha_hora, subtotal, iva, total, metodo_pago) 
+                               VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+                cursor.execute(sql_venta, (id_cliente, id_usuario, fecha_hora, subtotal, iva, total_dec, metodo_pago))
                 
                 # Obtener el ID de la venta que se acaba de generar para usarlo en los detalles
                 id_venta = cursor.lastrowid
@@ -67,7 +73,7 @@ class Venta:
                 # Si la venta tiene un cliente asignado, marcar su cita de hoy como Completada
                 if id_cliente is not None:
                     cursor.execute(
-                        "UPDATE citas SET estado = 'Completada' WHERE id_cliente = %s AND fecha_cita = CURDATE() AND estado = 'Pendiente'", 
+                        "UPDATE Citas SET estado = 'Completada' WHERE id_cliente = %s AND fecha_cita = CURDATE() AND estado = 'Pendiente'", 
                         (id_cliente,)
                     )
         
@@ -107,7 +113,6 @@ class Venta:
             ticket = cursor.fetchone()
             if not ticket: return None
             
-            # Usando el nombre exacto de la tabla 10 de tu inicializar_bd.py
             sql_servicios = """
                 SELECT vs.precio_cobrado, s.nombre_servicio, 
                        CONCAT(e.nombres, ' ', IFNULL(e.primer_apellido, '')) as barbero
@@ -119,7 +124,6 @@ class Venta:
             cursor.execute(sql_servicios, (id_venta,))
             servicios = cursor.fetchall()
             
-            # Usando el nombre exacto de la tabla 11 de tu inicializar_bd.py
             sql_productos = """
                 SELECT vp.cantidad, vp.precio_cobrado, p.nombre_producto
                 FROM Detalle_Venta_Productos vp

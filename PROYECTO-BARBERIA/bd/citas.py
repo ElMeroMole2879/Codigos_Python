@@ -72,6 +72,7 @@ class Cita:
         if conexion:
             try:
                 cursor = conexion.cursor(dictionary=True) 
+                # DICCIONARY=True para que nos devuelva un diccionario y podamos acceder por nombre de columna
                 sql = """
                 SELECT
                     c.id_cita,

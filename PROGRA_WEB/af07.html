@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>af07 - Becas Estudiantiles</title>
+    <link rel="stylesheet" href="estilos07.css">
+    <!-- Fuente moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <a href="index.html" class="volver-link">← volver P/index</a>
+        <h1>Opciones de Becas</h1>
+        <p class="subtitulo">Apoyos económicos y académicos para estudiantes de Ingeniería</p>
+    </header>
+
+    <main class="contenedor-becas">
+        <!-- Beca 1 -->
+        <section class="beca" id="beca1">
+            <div class="icono-beca">⚙️</div>
+            <h2>Beca Roberto Rocca</h2>
+            <p class="tipo">Excelencia en Ingeniería</p>
+            <p class="descripcion">Apoyo económico otorgado por el Grupo Techint (Ternium) para estudiantes destacados de ingeniería y sistemas en la UANL.</p>
+            <button onclick="solicitarBeca('Beca Roberto Rocca', 'https://www.robertorocca.org/es/becas')">Ver Requisitos</button>
+        </section>
+
+        <!-- Beca 2 -->
+        <section class="beca" id="beca2">
+            <div class="icono-beca">💻</div>
+            <h2>Beca Fundación Telmex</h2>
+            <p class="tipo">Excelencia Académica</p>
+            <p class="descripcion">Para estudiantes de ingeniería de 5to semestre en adelante con promedio destacado. Incluye apoyo económico y equipo de cómputo.</p>
+            <button onclick="solicitarBeca('Beca Fundación Telmex', 'https://www.fundaciontelmextelcel.org/becas')">Ver Requisitos</button>
+        </section>
+
+        <!-- Beca 3 -->
+        <section class="beca" id="beca3">
+            <div class="icono-beca">🚀</div>
+            <h2>Beca Santander Tecnologías</h2>
+            <p class="tipo">Desarrollo Profesional</p>
+            <p class="descripcion">Apoyo enfocado en estudiantes de áreas tecnológicas y sistemas para potenciar sus habilidades en programación y bases de datos.</p>
+            <button onclick="solicitarBeca('Beca Santander Tecnologías', 'https://app.becas-santander.com/es/program/search')">Ver Requisitos</button>
+        </section>
+
+        <!-- Beca 4 -->
+        <section class="beca" id="beca4">
+            <div class="icono-beca">🇲🇽</div>
+            <h2>Jóvenes Escribiendo el Futuro</h2>
+            <p class="tipo">Apoyo Federal</p>
+            <p class="descripcion">Beca del gobierno para estudiantes de Educación Superior, brindando un apoyo bimestral para evitar la deserción escolar.</p>
+            <button onclick="solicitarBeca('Jóvenes Escribiendo el Futuro', 'https://www.gob.mx/becasbenitojuarez')">Ver Requisitos</button>
+        </section>
+    </main>
+
+    <script src="alertas07.js"></script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    padding: 40px 20px;
+    color: #333;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.volver-link {
+    display: inline-block;
+    text-decoration: none;
+    color: #4a90e2;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    transition: background 0.3s;
+}
+
+.volver-link:hover {
+    background: rgba(74, 144, 226, 0.2);
+}
+
+h1 {
+    font-size: 2.8rem;
+    color: #1a202c;
+    letter-spacing: -1px;
+}
+
+.subtitulo {
+    color: #4a5568;
+    margin-top: 8px;
+    font-size: 1.1rem;
+}
+
+.contenedor-empresas {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 30px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.empresa {
+    flex: 1;
+    min-width: 280px;
+    max-width: 340px;
+    background: #ffffff;
+    padding: 30px 25px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.empresa:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.logo-placeholder {
+    width: 60px;
+    height: 60px;
+    background: #4a90e2;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3);
+}
+
+.empresa h2 {
+    font-size: 1.5rem;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.ubicacion {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.descripcion {
+    font-size: 0.95rem;
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    flex-grow: 1;
+}
+
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+    transition: all 0.3s ease;
+}
+
+button:hover {
+    background: linear-gradient(135deg, #357abd 0%, #285e92 100%);
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6);
+}

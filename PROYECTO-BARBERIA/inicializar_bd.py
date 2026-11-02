@@ -19,11 +19,10 @@ class InicializadorBD:
                 cursor = conexion.cursor()
                 nombre_bd = self.credenciales["database"]
 
-                # 1. CREAMOS LA BD SOLO SI NO EXISTE (Quitamos el DROP DATABASE)
+                # CREAMOS LA BD SOLO SI NO EXISTE
                 cursor.execute(f"CREATE DATABASE IF NOT EXISTS {nombre_bd} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
                 cursor.execute(f"USE {nombre_bd};")
 
-                # 2. AGREGAMOS "IF NOT EXISTS" A TODAS LAS TABLAS
                 # TABLA 1: Usuarios
                 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Usuarios (
@@ -90,6 +89,7 @@ class InicializadorBD:
                     id_producto INT AUTO_INCREMENT PRIMARY KEY,
                     nombre_producto VARCHAR(100) NOT NULL,
                     marca VARCHAR(50) NOT NULL,
+                    caracteristicas VARCHAR(255),
                     precio_venta_actual DECIMAL(10, 2) NOT NULL,
                     stock_total INT DEFAULT 0
                 );
@@ -137,13 +137,15 @@ class InicializadorBD:
                 );
                 """)
 
-                # TABLA 9: Ventas 
+                # TABLA 9: Ventas
                 cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Ventas (
                     id_venta INT AUTO_INCREMENT PRIMARY KEY,
                     id_cliente INT, 
                     id_usuario INT NOT NULL, 
                     fecha_hora DATETIME NOT NULL,
+                    subtotal DECIMAL(10, 2) NOT NULL,
+                    iva DECIMAL(10, 2) NOT NULL,
                     total DECIMAL(10, 2) NOT NULL,
                     metodo_pago ENUM('Efectivo', 'Tarjeta', 'Transferencia') NOT NULL,
                     FOREIGN KEY (id_cliente) REFERENCES Clientes(id_cliente) ON DELETE SET NULL,
@@ -185,6 +187,7 @@ class InicializadorBD:
                 """)
 
                 conexion.commit()
+                print("Base de datos configurada exitosamente con las nuevas columnas.")
                 
         except Error as e:
             print(f"Error al configurar la base de datos: {e}")

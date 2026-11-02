@@ -113,7 +113,7 @@ def con_errores(funcion):
         except OSError as e:
             messagebox.showerror("Error de archivo", str(e))
         except Exception as e:
-            # Captura genérica para errores del backend (incluyendo base de datos)
+            # Captura para errores inesperados, como problemas de conexión a la base de datos
             messagebox.showerror("Error del sistema", f"Ocurrió un problema de base de datos o sistema:\n\n{e}")
     envoltura.__name__ = funcion.__name__
     return envoltura
@@ -217,6 +217,21 @@ def seleccionado(tabla, mensaje):
         messagebox.showinfo("Falta una selección", mensaje)
         return None
     return seleccion[0]
+
+
+def validar_password_fuerte(password, confirmacion):
+    """Reglas de negocio para contraseñas seguras."""
+    if password != confirmacion:
+        raise ValueError("Las contraseñas no coinciden. Verifícalas.")
+    if len(password) < 8:
+        raise ValueError("La contraseña debe tener al menos 8 caracteres.")
+    if len(set(password)) == 1:
+        raise ValueError("La contraseña no puede estar formada por el mismo carácter repetido.")
+    if not any(c.isupper() for c in password):
+        raise ValueError("La contraseña debe incluir al menos una letra mayúscula.")
+    if not any(c.islower() for c in password):
+        raise ValueError("La contraseña debe incluir al menos una letra minúscula.")
+    return True
 
 
 class ComboConIds(ttk.Combobox):
@@ -366,7 +381,7 @@ class VentanaLogin(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Morenos Barber - Iniciar sesión")
-        self.geometry("420x340")
+        self.geometry("420x370")
         self.resizable(False, False)
         self.configure(bg=FONDO)
         aplicar_estilos(self)
@@ -400,6 +415,14 @@ class VentanaLogin(tk.Tk):
         entrada_password.pack(fill="x", pady=(2, 20))
 
         BotonDegradado(caja, text="Iniciar sesión", command=self.entrar).pack(fill="x")
+        
+        lbl_olvide = tk.Label(caja, text="¿Olvidaste tu contraseña?", fg=AZUL_POSTE, bg=FONDO, cursor="hand2", font=("Segoe UI", 9, "underline"))
+        lbl_olvide.pack(pady=(12, 0))
+        lbl_olvide.bind("<Button-1>", lambda e: messagebox.showinfo(
+            "Recuperar contraseña", 
+            "Por motivos de seguridad y control, para recuperar o cambiar tu contraseña debes solicitarlo directamente al Administrador o Dueño del sistema.\n\n"
+            "El administrador puede asignarte una contraseña nueva desde la pestaña de Usuarios."
+        ))
 
         entrada_usuario.bind("<Return>", lambda _e: entrada_password.focus())
         entrada_password.bind("<Return>", lambda _e: self.entrar())
@@ -811,7 +834,7 @@ class PanelVentas(ttk.Frame):
             cajero = "Sistema/Administrador"
         
         lineas = [f"Venta #{ticket['id_venta']} · {ticket['fecha_hora']} · {ticket['metodo_pago']}"]
-        lineas.append(f"Cobrado por: {cajero}")  # <- Aquí agregamos al cajero
+        lineas.append(f"Cobrado por: {cajero}")  # Aquí agregamos al cajero
         
         cliente = ticket.get("cliente_nombres")
         lineas.append(f"Cliente: {cliente} {ticket.get('cliente_apellido', '')}" if cliente else "Cliente: Mostrador (sin cliente)")
@@ -1123,7 +1146,7 @@ class PanelEmpleados(ttk.Frame):
             "nombres": tk.StringVar(), "primer_apellido": tk.StringVar(), "segundo_apellido": tk.StringVar(),
             "curp": tk.StringVar(), "telefono": tk.StringVar(), "correo": tk.StringVar(),
             "calle": tk.StringVar(), "num_exterior": tk.StringVar(), "num_interior": tk.StringVar(),
-            "colonia": tk.StringVar(), "cp": tk.StringVar(), "puesto": tk.StringVar(),
+            "colonia": tk.StringVar(), "colonia": tk.StringVar(), "cp": tk.StringVar(), "puesto": tk.StringVar(),
             "salario_base": tk.StringVar(), "porcentaje_comision": tk.StringVar(),
         }
         self.var_reactivar = tk.StringVar()
@@ -1458,12 +1481,12 @@ class PanelProductos(ttk.Frame):
         contenedor, self.tabla = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("nombre", "Nombre", 180, "w"), ("marca", "Marca", 120, "w"),
             ("caracteristicas", "Características", 220, "w"), ("precio", "Precio", 90, "e"), ("stock", "Stock", 80, "e"),
-        ], altura=4)
-        contenedor.pack(fill="x", pady=(14, 0))
+        ], altura=3)
+        contenedor.pack(fill="both", expand=True, pady=(6, 0))
         self.tabla.bind("<<TreeviewSelect>>", self.al_seleccionar)
 
         entradas = ttk.LabelFrame(self, text=" Entrada de inventario (compra de mercancía) ", padding=12)
-        entradas.pack(fill="x", pady=(14, 0))
+        entradas.pack(fill="x", pady=(6, 0))
         self.var_cantidad = tk.StringVar()
         self.var_costo = tk.StringVar()
         self.var_fecha_llegada = tk.StringVar(value=hoy())
@@ -1485,8 +1508,8 @@ class PanelProductos(ttk.Frame):
         contenedor, self.tabla_entradas = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("producto", "Producto", 180, "w"), ("marca", "Marca", 120, "w"),
             ("fecha", "Llegada", 100, "w"), ("cantidad", "Cantidad", 90, "e"), ("costo", "Costo unitario", 110, "e"), ("caduca", "Caducidad", 100, "w"),
-        ], altura=5)
-        contenedor.pack(fill="both", expand=True, pady=(10, 0))
+        ], altura=3)
+        contenedor.pack(fill="both", expand=True, pady=(6, 0))
 
     @con_errores
     def refrescar(self):
@@ -1596,11 +1619,11 @@ class PanelProductos(ttk.Frame):
 # ----------------------------------------------------------------------
 class PanelFinanzas(ttk.Frame):
     def __init__(self, padre):
-        super().__init__(padre, padding=24)
+        super().__init__(padre, padding=14)
         ttk.Label(self, text="Resumen de ingresos", style="Encabezado.TLabel").pack(anchor="w")
 
         barra = ttk.Frame(self)
-        barra.pack(fill="x", pady=(10, 20))
+        barra.pack(fill="x", pady=(6, 12))
         ttk.Label(barra, text="Periodo").pack(side="left")
         self.cb_periodo = ttk.Combobox(barra, values=["Día", "Semana", "Mes", "Año"], state="readonly", width=12)
         self.cb_periodo.set("Día")
@@ -1617,12 +1640,12 @@ class PanelFinanzas(ttk.Frame):
             caja.pack(side="left", padx=(0, 16))
             ttk.Label(caja, textvariable=var, style="Total.TLabel").pack()
 
-        ttk.Separator(self).pack(fill="x", pady=24)
+        ttk.Separator(self).pack(fill="x", pady=12)
 
         # --- Corte de caja diario ---
         ttk.Label(self, text="Corte de caja diario", style="Encabezado.TLabel").pack(anchor="w")
         fila_corte = ttk.Frame(self)
-        fila_corte.pack(fill="x", pady=(10, 10))
+        fila_corte.pack(fill="x", pady=(6, 6))
         self.var_fecha_corte = tk.StringVar(value=hoy())
         ttk.Label(fila_corte, text="Fecha").pack(side="left")
         ttk.Entry(fila_corte, textvariable=self.var_fecha_corte, width=12).pack(side="left", padx=(6, 10))
@@ -1631,17 +1654,18 @@ class PanelFinanzas(ttk.Frame):
         ttk.Label(fila_corte, text="   Gran total del día:").pack(side="left", padx=(20, 4))
         ttk.Label(fila_corte, textvariable=self.var_total_corte, style="Total.TLabel").pack(side="left")
 
+        # TABLA DINÁMICA
         contenedor, self.tabla_corte = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("metodo", "Método de pago", 200, "w"), ("total", "Total recaudado", 160, "e"), ("tickets", "Número de tickets", 150, "e"),
-        ], altura=4)
-        contenedor.pack(fill="x", pady=(0, 10))
+        ], altura=3)
+        contenedor.pack(fill="both", expand=True, pady=(0, 6))
 
-        ttk.Separator(self).pack(fill="x", pady=14)
+        ttk.Separator(self).pack(fill="x", pady=10)
 
         # --- Consulta por rango de fechas ---
         ttk.Label(self, text="Consultar por rango de fechas", style="Encabezado.TLabel").pack(anchor="w")
         fila_rango = ttk.Frame(self)
-        fila_rango.pack(fill="x", pady=(10, 10))
+        fila_rango.pack(fill="x", pady=(6, 6))
         self.var_desde = tk.StringVar(value=hoy())
         self.var_hasta = tk.StringVar(value=hoy())
         ttk.Label(fila_rango, text="Desde").pack(side="left")
@@ -1751,38 +1775,45 @@ class PanelUsuarios(ttk.Frame):
         self.var_apellido2 = tk.StringVar()
         self.var_username = tk.StringVar()
         self.var_password = tk.StringVar()
+        self.var_password_conf = tk.StringVar()
 
         formulario = ttk.LabelFrame(self, text=" Cuenta de usuario ", padding=12)
         formulario.pack(fill="x")
         campos = [
-            ("Nombre(s) *", self.var_nombres, 18), ("Apellido paterno *", self.var_apellido1, 18),
-            ("Apellido materno", self.var_apellido2, 18), ("Usuario (username) *", self.var_username, 16),
+            ("Nombre(s) *", self.var_nombres, 20), ("Apellido paterno *", self.var_apellido1, 20),
+            ("Apellido materno", self.var_apellido2, 20), ("Usuario (username) *", self.var_username, 20),
         ]
         for i, (texto, var, ancho) in enumerate(campos):
             ttk.Label(formulario, text=texto).grid(row=0, column=i, sticky="w", padx=(0, 4))
             tipo_val = "letras" if "Nombre" in texto or "Apellido" in texto else "texto"
             EntradaValidada(formulario, tipo=tipo_val, textvariable=var, width=ancho).grid(row=1, column=i, sticky="w", padx=(0, 16), pady=(0, 10))
             
-        ttk.Label(formulario, text="Contraseña").grid(row=0, column=4, sticky="w", padx=(0, 4))
-        ttk.Entry(formulario, textvariable=self.var_password, width=16, show="*").grid(row=1, column=4, sticky="w", padx=(0, 16), pady=(0, 10))
-        ttk.Label(formulario, text="Rol *").grid(row=0, column=5, sticky="w", padx=(0, 4))
-        self.cb_rol = ttk.Combobox(formulario, values=["Dueño", "Recepcionista"], state="readonly", width=14)
+        ttk.Label(formulario, text="Contraseña").grid(row=2, column=0, sticky="w", padx=(0, 4))
+        ttk.Entry(formulario, textvariable=self.var_password, width=20, show="*").grid(row=3, column=0, sticky="w", padx=(0, 16), pady=(0, 10))
+        
+        ttk.Label(formulario, text="Repetir contraseña").grid(row=2, column=1, sticky="w", padx=(0, 4))
+        ttk.Entry(formulario, textvariable=self.var_password_conf, width=20, show="*").grid(row=3, column=1, sticky="w", padx=(0, 16), pady=(0, 10))
+        
+        ttk.Label(formulario, text="Rol *").grid(row=2, column=2, sticky="w", padx=(0, 4))
+        self.cb_rol = ttk.Combobox(formulario, values=["Dueño", "Recepcionista"], state="readonly", width=18)
         self.cb_rol.set("Recepcionista")
-        self.cb_rol.grid(row=1, column=5, sticky="w", pady=(0, 10))
+        self.cb_rol.grid(row=3, column=2, sticky="w", pady=(0, 10))
 
         botones = ttk.Frame(formulario)
-        botones.grid(row=2, column=0, columnspan=6, sticky="w")
+        botones.grid(row=4, column=0, columnspan=6, sticky="w")
         BotonDegradado(botones, text="Crear usuario", command=self.registrar).pack(side="left")
         ttk.Button(botones, text="Guardar cambios del elegido", command=self.guardar_cambios).pack(side="left", padx=6)
         ttk.Button(botones, text="Activar", command=self.activar).pack(side="left")
         ttk.Button(botones, text="Desactivar", command=self.desactivar).pack(side="left", padx=6)
         ttk.Button(botones, text="Eliminar por error", command=self.eliminar_por_error).pack(side="left")
         ttk.Button(botones, text="Limpiar", command=self.limpiar).pack(side="left", padx=6)
+        
         ttk.Label(
             formulario, foreground=TEXTO_SUAVE, wraplength=760, justify="left",
-            text="Para cambiar la contraseña del usuario elegido, escríbela y guarda los cambios. "
-                 "Si dejas el campo en blanco, se conservará la contraseña que ya tenía el usuario.",
-        ).grid(row=3, column=0, columnspan=6, sticky="w", pady=(6, 0))
+            text="La contraseña debe tener mínimo 8 caracteres, mayúsculas, minúsculas y no ser repetitiva. "
+                 "Para cambiar la contraseña del usuario elegido, escríbela dos veces y guarda los cambios. "
+                 "Si dejas ambos campos en blanco, se conservará la contraseña que ya tenía.",
+        ).grid(row=5, column=0, columnspan=6, sticky="w", pady=(6, 0))
 
         contenedor, self.tabla = crear_tabla(self, [
             ("id", "ID", 0, "w"), ("nombre", "Nombre", 220, "w"), ("usuario", "Usuario", 140, "w"),
@@ -1817,6 +1848,7 @@ class PanelUsuarios(ttk.Frame):
         self.var_apellido2.set(fila.get("segundo_apellido") or "")
         self.var_username.set(fila.get("username", ""))
         self.var_password.set("")
+        self.var_password_conf.set("")
         self.cb_rol.set(fila.get("rol", "Recepcionista"))
 
     @con_errores
@@ -1825,7 +1857,15 @@ class PanelUsuarios(ttk.Frame):
         apellido1 = convertir(self.var_apellido1.get(), "texto", "Apellido paterno", True, 50)
         apellido2 = convertir(self.var_apellido2.get(), "texto", "Apellido materno", False, 50)
         username = convertir(self.var_username.get(), "texto", "Usuario", True, 50)
-        password = convertir(self.var_password.get(), "texto", "Contraseña", True, 100)
+        
+        password = self.var_password.get()
+        password_conf = self.var_password_conf.get()
+        
+        validar_password_fuerte(password, password_conf)
+        
+        if len(password) > 100:
+            raise ValueError("La contraseña no puede pasar de 100 caracteres.")
+            
         rol = self.cb_rol.get()
         if not Usuario.registrar_usuario(nombres, apellido1, apellido2, username, password, rol):
             raise ErrorOperacion("No se pudo crear la cuenta (revisa que el usuario no esté repetido).")
@@ -1839,11 +1879,17 @@ class PanelUsuarios(ttk.Frame):
         apellido1 = convertir(self.var_apellido1.get(), "texto", "Apellido paterno", True, 50)
         apellido2 = convertir(self.var_apellido2.get(), "texto", "Apellido materno", False, 50)
         username = convertir(self.var_username.get(), "texto", "Usuario", True, 50)
-        password = self.var_password.get().strip()
         rol = self.cb_rol.get()
 
-        if password and len(password) > 100:
-            raise ValueError("La nueva contraseña no puede pasar de 100 caracteres.")
+        password = self.var_password.get().strip()
+        password_conf = self.var_password_conf.get().strip()
+        
+        if password or password_conf:
+            validar_password_fuerte(password, password_conf)
+            if len(password) > 100:
+                raise ValueError("La nueva contraseña no puede pasar de 100 caracteres.")
+        else:
+            password = ""
 
         if self.usuario_elegido["rol"] == "Dueño" and rol != "Dueño":
             if self._comprobar_unico_dueno(self.usuario_elegido["id_usuario"]):
@@ -1893,7 +1939,7 @@ class PanelUsuarios(ttk.Frame):
         self.refrescar()
 
     def limpiar(self):
-        for var in (self.var_nombres, self.var_apellido1, self.var_apellido2, self.var_username, self.var_password):
+        for var in (self.var_nombres, self.var_apellido1, self.var_apellido2, self.var_username, self.var_password, self.var_password_conf):
             var.set("")
         self.cb_rol.set("Recepcionista")
         self.usuario_elegido = None
