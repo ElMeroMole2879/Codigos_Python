@@ -1,3 +1,8 @@
 mysql-connector-python
 
 pyinstaller
+
+-- Script de configuración inicial
+CREATE USER 'admin_barberia'@'localhost' IDENTIFIED BY 'Barberia2026*';
+GRANT ALL PRIVILEGES ON *.* TO 'admin_barberia'@'localhost';
+FLUSH PRIVILEGES;
