@@ -1,10 +1,14 @@
 import mysql.connector
 from mysql.connector import Error
+from tkinter import messagebox, Tk
 from config import acceso_bd
 
 class InicializadorBD:
     def __init__(self):
         self.credenciales = acceso_bd
+        # Ocultamos la ventana principal de Tkinter, solo queremos las alertas
+        self.root = Tk()
+        self.root.withdraw() 
 
     def configurar_base_datos(self):
         try:
@@ -187,14 +191,20 @@ class InicializadorBD:
                 """)
 
                 conexion.commit()
-                print("Base de datos configurada exitosamente con las nuevas columnas.")
+                # Modificamos el mensaje para que sea una alerta de información
+                messagebox.showinfo("Instalación Completada", "La base de datos se ha configurado exitosamente.")
                 
         except Error as e:
-            print(f"Error al configurar la base de datos: {e}")
+            # Modificamos el mensaje para que sea una alerta de error visible
+            messagebox.showerror("Error Crítico de Instalación", f"No se pudo configurar la base de datos.\n\nVerifique la conexión a MySQL.\nDetalle: {e}")
+            import sys
+            sys.exit(1)
         finally:
             if 'conexion' in locals() and conexion.is_connected():
                 cursor.close()
                 conexion.close()
+            # Destruimos la ventana raíz temporal al terminar
+            self.root.destroy()
 
 if __name__ == "__main__":
     app = InicializadorBD()

@@ -429,8 +429,8 @@ class VentanaLogin(tk.Tk):
         entrada_usuario.focus()
 
     def entrar(self):
-        usuario = self.var_usuario.get().strip()
-        password = self.var_password.get()
+        usuario = self.var_usuario.get().strip() # strip() para evitar espacios al inicio o final
+        password = self.var_password.get() # get para obtener el valor
         if not usuario or not password:
             messagebox.showwarning("Faltan datos", "Escribe tu usuario y tu contraseña.")
             return

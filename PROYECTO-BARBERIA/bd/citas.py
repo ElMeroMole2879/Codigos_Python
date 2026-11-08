@@ -45,6 +45,7 @@ class Cita:
                     return False
                 
                 # Inserción de la cita
+                
                 sql = """INSERT INTO Citas (id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita) 
                          VALUES (%s, %s, %s, %s, %s)"""
                 valores = (id_cliente, id_empleado, id_servicio, fecha_cita, hora_cita)
